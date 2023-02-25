@@ -54,7 +54,7 @@ std::vector<float> Convolve(const std::vector<float>& A, const std::vector<float
 	return out;
 }
 
-void KernelTest(const char* label, pcg32_random_t& rng, CSV& csv, const std::vector<float>& kernel)
+void KernelTest(const char* label, pcg32_random_t& rng, CSV& csv, CSV& CDFcsv, const std::vector<float>& kernel)
 {
 	printf("%s\n", label);
 
@@ -65,13 +65,11 @@ void KernelTest(const char* label, pcg32_random_t& rng, CSV& csv, const std::vec
 	csv[columnIndex + 1].label = std::string(label) + "_ToUniform";
 
 	// make white noise
-	printf("  Generating\n");
 	std::vector<float> whiteNoise(c_numberCount);
 	for (float& f : whiteNoise)
 		f = PCGRandomFloat01(rng);
 
 	// filter the white noise, truncate it, normalize it to [0,1] and put it into the csv
-	printf("  Filtering\n");
 	csv[columnIndex].values = Convolve(whiteNoise, kernel);
 	csv[columnIndex].values.resize(c_numberCount);
 	float themin = csv[columnIndex].values[0];
@@ -117,29 +115,17 @@ void KernelTest(const char* label, pcg32_random_t& rng, CSV& csv, const std::vec
 		// TODO: first CDF value isn't 0. last is 1 because we force it to be. is this is a problem?
 		// TODO: polynomial fit the cdf or something
 	}
+
+	// 
+	{
+	}
+	// TODO: write to CDFcsv
 }
 
-int main(int argc, char** argv)
+void WriteCSV(const CSV& csv, const char* fileName)
 {
-	pcg32_random_t rng;
-#if !DETERMINISTIC()
-	std::random_device rd;
-	pcg32_srandom_r(&rng, rd(), 0);
-#else
-	pcg32_srandom_r(&rng, 0xa000b800, 0);
-#endif
-
-	// make noise and add to csv
-	CSV csv;
-	KernelTest("Box2RedNoise", rng, csv, { 1.0f, 1.0f });
-	KernelTest("Box2BlueNoise", rng, csv, { 1.0f, -1.0f });
-
-	// TODO: more types of noise, and gaussian filtered.
-
-	// write to a csv so we can make histograms
-	printf("\nWriting CSV...\n");
 	FILE* file = nullptr;
-	fopen_s(&file, "out.csv", "wb");
+	fopen_s(&file, fileName, "wb");
 
 	// write header
 	bool first = true;
@@ -163,6 +149,34 @@ int main(int argc, char** argv)
 	}
 
 	fclose(file);
+}
+
+int main(int argc, char** argv)
+{
+	pcg32_random_t rng;
+#if !DETERMINISTIC()
+	std::random_device rd;
+	pcg32_srandom_r(&rng, rd(), 0);
+#else
+	pcg32_srandom_r(&rng, 0xa000b800, 0);
+#endif
+
+	// make noise and add to csv
+	CSV csv, CDFcsv;
+	KernelTest("Box2RedNoise", rng, csv, CDFcsv, { 1.0f, 1.0f });
+	KernelTest("Box3RedNoise", rng, csv, CDFcsv, { 1.0f, 1.0f, 1.0f });
+	KernelTest("Box4RedNoise", rng, csv, CDFcsv, { 1.0f, 1.0f, 1.0f, 1.0f });
+	KernelTest("Box5RedNoise", rng, csv, CDFcsv, { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f });
+	KernelTest("Box2BlueNoise", rng, csv, CDFcsv, { 1.0f, -1.0f });
+	KernelTest("Box3BlueNoise", rng, csv, CDFcsv, { 1.0f, -1.0f, 1.0f });
+	KernelTest("Box4BlueNoise", rng, csv, CDFcsv, { 1.0f, -1.0f, 1.0f, -1.0f });
+	KernelTest("Box5BlueNoise", rng, csv, CDFcsv, { 1.0f, -1.0f, 1.0f, -1.0f, 1.0f });
+
+	// TODO: more types of noise, and gaussian filtered.
+
+	printf("\nWriting CSVs...\n");
+	WriteCSV(csv, "out.csv");
+	WriteCSV(CDFcsv, "cdf.csv");
 
 	return 0;
 }

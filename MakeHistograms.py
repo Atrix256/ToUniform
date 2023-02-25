@@ -4,10 +4,11 @@ import math
 import numpy as np
 
 df = pd.read_csv('out.csv')
-rows = 2
 
 columns = df.columns.values.tolist()
 columnCount = len(columns)
+
+rows = int(columnCount / 4)
 
 # ================= Histograms =================
 
@@ -16,7 +17,7 @@ print("Histograms")
 fig, ax = plt.subplots(rows, math.ceil(columnCount/rows), figsize=(15, 10))
 
 for i in range(columnCount):
-    print(columns[i])
+    print("  " + columns[i])
     ax[i%rows, math.floor(i/rows)].hist(df[columns[i]], bins=100)
     ax[i%rows, math.floor(i/rows)].set_title(columns[i])
 
@@ -30,7 +31,7 @@ print("DFT")
 fig, ax = plt.subplots(rows, math.ceil(columnCount/rows), figsize=(15, 10))
 
 for i in range(columnCount):
-    print(columns[i])
+    print("  " + columns[i])
     data = df[columns[i]].to_numpy()
     DFT = np.fft.fft(data)
     DFT[0] = 0 # remove DC
