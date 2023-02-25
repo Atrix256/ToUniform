@@ -4,7 +4,7 @@ import math
 import numpy as np
 
 df = pd.read_csv('out.csv')
-rows = 4
+rows = 2
 
 columns = df.columns.values.tolist()
 columnCount = len(columns)
