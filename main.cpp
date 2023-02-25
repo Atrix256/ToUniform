@@ -9,6 +9,9 @@
 static const size_t c_numberCount = 10000000;
 //static const size_t c_numberCount = 200;
 
+// Bucket count of histogram that makes the PDF and CDF
+static const size_t c_histogramBucketCount = 10240;
+
 struct Column
 {
 	std::string label;
@@ -67,13 +70,53 @@ void KernelTest(const char* label, pcg32_random_t& rng, CSV& csv, const std::vec
 	for (float& f : whiteNoise)
 		f = PCGRandomFloat01(rng);
 
-	// filter the white noise, truncate it, and put it into the csv
-	printf("  Filterting\n");
+	// filter the white noise, truncate it, normalize it to [0,1] and put it into the csv
+	printf("  Filtering\n");
 	csv[columnIndex].values = Convolve(whiteNoise, kernel);
 	csv[columnIndex].values.resize(c_numberCount);
+	float themin = csv[columnIndex].values[0];
+	float themax = csv[columnIndex].values[0];
+	for (float f : csv[columnIndex].values)
+	{
+		themin = std::min(themin, f);
+		themax = std::max(themax, f);
+	}
+	for (float& f : csv[columnIndex].values)
+		f = (f - themin) / (themax - themin);
 
-	// TODO: make PDF and CDF and then put the filtered noise through that.
-	csv[columnIndex + 1].values = csv[columnIndex].values;
+	// Make a histogram
+	std::vector<int> counts(c_histogramBucketCount, 0);
+	for (float f : csv[columnIndex].values)
+	{
+		int bucket = std::min(int(f * float(c_histogramBucketCount)), (int)c_histogramBucketCount - 1);
+		counts[bucket]++;
+	}
+
+	// Make a PDF and a CDF
+	std::vector<float> PDF(c_histogramBucketCount);
+	std::vector<float> CDF(c_histogramBucketCount);
+	float lastCDFValue = 0.0f;
+	for (int index = 0; index < c_histogramBucketCount; ++index)
+	{
+		PDF[index] = float(counts[index]) / float(c_numberCount);
+		CDF[index] = lastCDFValue + PDF[index];
+		lastCDFValue = CDF[index];
+	}
+	CDF[c_histogramBucketCount - 1] = 1.0f;
+
+	// Put the values through the CDF (inverted, inverted CDF) to make them be a uniform distribution
+	csv[columnIndex + 1].values.resize(c_numberCount);
+	for (size_t index = 0; index < c_numberCount; ++index)
+	{
+		float x = csv[columnIndex].values[index];
+		int xi = std::min(int(x * float(c_histogramBucketCount)), (int)c_histogramBucketCount - 1);
+		float y = CDF[xi];
+		csv[columnIndex + 1].values[index] = y;
+
+		// TODO: use fraction to lerp between buckets!
+		// TODO: first CDF value isn't 0. last is 1 because we force it to be. is this is a problem?
+		// TODO: polynomial fit the cdf or something
+	}
 }
 
 int main(int argc, char** argv)
