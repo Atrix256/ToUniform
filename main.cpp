@@ -5,12 +5,10 @@
 
 #define DETERMINISTIC() false
 
-// TODO: back to this
 static const size_t c_numberCount = 10000000;
-//static const size_t c_numberCount = 200;
 
 // Bucket count of histogram that makes the PDF and CDF
-static const size_t c_histogramBucketCount = 10240;
+static const size_t c_histogramBucketCount = 1024;
 
 struct Column
 {
@@ -22,6 +20,11 @@ typedef std::vector<Column> CSV;
 float PCGRandomFloat01(pcg32_random_t& rng)
 {
 	return ldexpf((float)pcg32_random_r(&rng), -32);
+}
+
+float Lerp(float A, float B, float t)
+{
+	return A * (1.0f - t) + B * t;
 }
 
 std::vector<float> Convolve(const std::vector<float>& A, const std::vector<float>& B)
@@ -100,21 +103,30 @@ void KernelTest(const char* label, pcg32_random_t& rng, CSV& csv, CSV& CDFcsv, c
 		CDF[index] = lastCDFValue + PDF[index];
 		lastCDFValue = CDF[index];
 	}
-	CDF[c_histogramBucketCount - 1] = 1.0f;
+	CDF.insert(CDF.begin(), 0.0f);
+	CDF.push_back(1.0f);
 
 	// Put the values through the CDF (inverted, inverted CDF) to make them be a uniform distribution
 	csv[columnIndex + 1].values.resize(c_numberCount);
 	for (size_t index = 0; index < c_numberCount; ++index)
 	{
 		float x = csv[columnIndex].values[index];
-		int xi = std::min(int(x * float(c_histogramBucketCount)), (int)c_histogramBucketCount - 1);
-		float y = CDF[xi];
-		csv[columnIndex + 1].values[index] = y;
+		float xindexf = std::min(x * float(c_histogramBucketCount), (float)(c_histogramBucketCount - 1));
+		int xindex1 = int(xindexf);
+		int xindex2 = std::min(xindex1 + 1, (int)c_histogramBucketCount - 1);
+		float xindexfract = xindexf - std::floor(xindexf);
 
-		// TODO: use fraction to lerp between buckets!
-		// TODO: first CDF value isn't 0. last is 1 because we force it to be. is this is a problem?
-		// TODO: polynomial fit the cdf or something
+		float y1 = CDF[xindex1];
+		float y2 = CDF[xindex2];
+
+		csv[columnIndex + 1].values[index] = Lerp(y1, y2, xindexfract);
+
+		// TODO: with low bucket counts, the zero bucket is low, and the last bucket is high. may be off by 0.5 bucket issue.
 	}
+
+	// TODO: after using fraction to lerp between buckets, may be able to drop bucket count.
+	// TODO: first CDF value isn't 0. last is 1 because we force it to be. is this is a problem?
+	// TODO: polynomial fit the cdf and see how well if fits / does
 
 	// Put the CDF into the CD Fcsv
 	columnIndex = (int)CDFcsv.size();
@@ -193,13 +205,9 @@ int main(int argc, char** argv)
 /*
 TODO:
 
-- make a thing where you give a kernel and it samples to make PDF, then integrates to get CDF, and uses that to make uniform again.
- - CDF be stored as a LUT and also as least squared polynomial?
- - show resulting histogram and DFT
 - better DFTs by averaging a bunch of smaller sections.
-- remove the code in this file you don't need anymore
-- since it's now a noise type and then ToUniform, we should make the output have 2 columns, and N rows where N is the number of noise types we have.
- - could also do 4, 6 or 8 columns instead to make the image more square
+
+! may want to hold off on this post til you put out the paper?
 
 LANDFILL:
 
