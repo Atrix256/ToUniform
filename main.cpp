@@ -116,10 +116,11 @@ void KernelTest(const char* label, pcg32_random_t& rng, CSV& csv, CSV& CDFcsv, c
 		// TODO: polynomial fit the cdf or something
 	}
 
-	// 
-	{
-	}
-	// TODO: write to CDFcsv
+	// Put the CDF into the CD Fcsv
+	columnIndex = (int)CDFcsv.size();
+	CDFcsv.resize(columnIndex + 1);
+	CDFcsv[columnIndex].label = std::string(label) + " CDF";
+	CDFcsv[columnIndex].values = CDF;
 }
 
 void WriteCSV(const CSV& csv, const char* fileName)
@@ -127,25 +128,33 @@ void WriteCSV(const CSV& csv, const char* fileName)
 	FILE* file = nullptr;
 	fopen_s(&file, fileName, "wb");
 
-	// write header
-	bool first = true;
-	for (const Column& column : csv)
+	if (csv.size() > 0)
 	{
-		fprintf(file, "%s\"%s\"", first ? "" : ",", column.label.c_str());
-		first = false;
-	}
-	fprintf(file, "\n");
-
-	// write data
-	for (size_t i = 0; i < c_numberCount; ++i)
-	{
+		// write header
+		size_t maxColSize = 0;
 		bool first = true;
 		for (const Column& column : csv)
 		{
-			fprintf(file, "%s\"%f\"", first ? "" : ",", column.values[i]);
+			fprintf(file, "%s\"%s\"", first ? "" : ",", column.label.c_str());
+			maxColSize = std::max(maxColSize, column.values.size());
 			first = false;
 		}
 		fprintf(file, "\n");
+
+		// write data
+		for (size_t i = 0; i < maxColSize; ++i)
+		{
+			bool first = true;
+			for (const Column& column : csv)
+			{
+				if (column.values.size() > i)
+					fprintf(file, "%s\"%f\"", first ? "" : ",", column.values[i]);
+				else
+					fprintf(file, "%s\"\"", first ? "" : ",");
+				first = false;
+			}
+			fprintf(file, "\n");
+		}
 	}
 
 	fclose(file);

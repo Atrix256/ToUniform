@@ -22,7 +22,7 @@ for i in range(columnCount):
     ax[i%rows, math.floor(i/rows)].set_title(columns[i])
 
 plt.tight_layout()
-fig.savefig("histograms.png", bbox_inches='tight')
+fig.savefig("_histograms.png", bbox_inches='tight')
 
 # ================= DFTs =================
 
@@ -48,4 +48,25 @@ for i in range(columnCount):
     #ax[i%rows, math.floor(i/rows)].set_xticks(freq)
 
 plt.tight_layout()
-fig.savefig("DFTs.png", bbox_inches='tight')
+fig.savefig("_DFTs.png", bbox_inches='tight')
+
+# ================= CDFs =================
+
+print("CDFs")
+
+df = pd.read_csv('cdf.csv')
+
+columns = df.columns.values.tolist()
+columnCount = len(columns)
+
+rows = int(columnCount / 4)
+
+fig, ax = plt.subplots(rows, math.ceil(columnCount/rows), figsize=(15, 10))
+
+for i in range(columnCount):
+    print("  " + columns[i])
+    ax[i%rows, math.floor(i/rows)].plot(df[columns[i]])
+    ax[i%rows, math.floor(i/rows)].set_title(columns[i])
+
+plt.tight_layout()
+fig.savefig("_cdf.png", bbox_inches='tight')
