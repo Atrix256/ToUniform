@@ -99,9 +99,10 @@ public:
 		return (float)ret;
 	}
 
+public:
+	std::array<double, N + 1> m_coefficients = {};
+
 private:
 	std::array<double, (N + 1) * 2 - 1> m_ATA = {};
 	std::array<double, N + 1> m_ATY = {};
-
-	std::array<double, N + 1> m_coefficients = {};
 };

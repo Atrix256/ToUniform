@@ -6,9 +6,7 @@
 #include "mathutils.h"
 #include "leastsquaresfit.h"
 
-// TODO: temp
-//#define DETERMINISTIC() false
-#define DETERMINISTIC() true
+#define DETERMINISTIC() false
 
 // The size of the list of random numbers output
 static const size_t c_numberCount = 10000000;
@@ -29,10 +27,11 @@ void KernelTest(const char* label, pcg32_random_t& rng, CSV& csv, CSV& CDFcsv, c
 	printf("%s\n", label);
 
 	// reserve space in the CSV for this data
-	int columnIndex = (int)csv.size();
-	csv.resize(columnIndex + 2);
-	csv[columnIndex].label = label;
-	csv[columnIndex + 1].label = std::string(label) + "_ToUniform";
+	int csvcolumnIndex = (int)csv.size();
+	csv.resize(csvcolumnIndex + 3);
+	csv[csvcolumnIndex].label = label;
+	csv[csvcolumnIndex + 1].label = std::string(label) + "_ToUniform";
+	csv[csvcolumnIndex + 2].label = std::string(label) + "_ToUniformQuadraticFit";
 
 	// make white noise
 	std::vector<float> whiteNoise(c_numberCount);
@@ -40,21 +39,21 @@ void KernelTest(const char* label, pcg32_random_t& rng, CSV& csv, CSV& CDFcsv, c
 		f = PCGRandomFloat01(rng);
 
 	// filter the white noise, truncate it, normalize it to [0,1] and put it into the csv
-	csv[columnIndex].values = Convolve(whiteNoise, kernel);
-	csv[columnIndex].values.resize(c_numberCount);
-	float themin = csv[columnIndex].values[0];
-	float themax = csv[columnIndex].values[0];
-	for (float f : csv[columnIndex].values)
+	csv[csvcolumnIndex].values = Convolve(whiteNoise, kernel);
+	csv[csvcolumnIndex].values.resize(c_numberCount);
+	float themin = csv[csvcolumnIndex].values[0];
+	float themax = csv[csvcolumnIndex].values[0];
+	for (float f : csv[csvcolumnIndex].values)
 	{
 		themin = std::min(themin, f);
 		themax = std::max(themax, f);
 	}
-	for (float& f : csv[columnIndex].values)
+	for (float& f : csv[csvcolumnIndex].values)
 		f = (f - themin) / (themax - themin);
 
 	// Make a histogram
 	std::vector<int> counts(c_histogramBucketCount, 0);
-	for (float f : csv[columnIndex].values)
+	for (float f : csv[csvcolumnIndex].values)
 	{
 		int bucket = std::min(int(f * float(c_histogramBucketCount)), (int)c_histogramBucketCount - 1);
 		counts[bucket]++;
@@ -74,10 +73,10 @@ void KernelTest(const char* label, pcg32_random_t& rng, CSV& csv, CSV& CDFcsv, c
 	CDF.push_back(1.0f);
 
 	// Put the values through the CDF (inverted, inverted CDF) to make them be a uniform distribution
-	csv[columnIndex + 1].values.resize(c_numberCount);
+	csv[csvcolumnIndex + 1].values.resize(c_numberCount);
 	for (size_t index = 0; index < c_numberCount; ++index)
 	{
-		float x = csv[columnIndex].values[index];
+		float x = csv[csvcolumnIndex].values[index];
 		float xindexf = std::min(x * float(c_histogramBucketCount), (float)(c_histogramBucketCount - 1));
 		int xindex1 = int(xindexf);
 		int xindex2 = std::min(xindex1 + 1, (int)c_histogramBucketCount - 1);
@@ -86,51 +85,51 @@ void KernelTest(const char* label, pcg32_random_t& rng, CSV& csv, CSV& CDFcsv, c
 		float y1 = CDF[xindex1];
 		float y2 = CDF[xindex2];
 
-		csv[columnIndex + 1].values[index] = Lerp(y1, y2, xindexfract);
+		csv[csvcolumnIndex + 1].values[index] = Lerp(y1, y2, xindexfract);
 	}
 
-	// TODO: polynomial fit the cdf and see how well if fits / does
-
-	// Put the CDF into the CD Fcsv
-	columnIndex = (int)CDFcsv.size();
-	CDFcsv.resize(columnIndex + 4);
-	CDFcsv[columnIndex].label = std::string(label) + " CDF";
-	CDFcsv[columnIndex].values = CDF;
+	// Put the CDF into the CDF csv
+	int cdfcsvcolumnIndex = (int)CDFcsv.size();
+	CDFcsv.resize(cdfcsvcolumnIndex + 2);
+	CDFcsv[cdfcsvcolumnIndex].label = std::string(label) + " CDF";
+	CDFcsv[cdfcsvcolumnIndex].values = CDF;
 
 	// Fit the CDF with a polynomial
-	LeastSquaresPolynomialFit<2> fit2;
-	LeastSquaresPolynomialFit<3> fit3;
-	LeastSquaresPolynomialFit<4> fit4;
+	LeastSquaresPolynomialFit<3> fit;
 	for (size_t i = 0; i < CDF.size(); ++i)
 	{
 		float x = float(i) / float(CDF.size());
 		float y = CDF[i];
-		fit2.AddPoint(x, y);
-		fit3.AddPoint(x, y);
-		fit4.AddPoint(x, y);
+		fit.AddPoint(x, y);
+	}
+	fit.CalculateCoefficients();
+
+	// print out the coefficients
+	printf("  y = ");
+	bool first = true;
+	for (size_t i = 0; i < fit.m_coefficients.size(); ++i)
+	{
+		printf("%s%f x^%i", first ? "" : " + ", fit.m_coefficients[fit.m_coefficients.size() - i - 1], (int)i);
+		first = false;
+	}
+	printf("\n");
+
+	// Put the values through the polynomial fit CDF (inverted, inverted CDF) to make them be a uniform distribution
+	csv[csvcolumnIndex + 2].values.resize(c_numberCount);
+	for (size_t index = 0; index < c_numberCount; ++index)
+	{
+		float x = csv[csvcolumnIndex].values[index];
+		csv[csvcolumnIndex + 2].values[index] = fit.Evaluate(x);
 	}
 
-	fit2.CalculateCoefficients();
-	fit3.CalculateCoefficients();
-	fit4.CalculateCoefficients();
-
-	CDFcsv[columnIndex + 1].label = std::string(label) + " Quadratic";
-	CDFcsv[columnIndex + 2].label = std::string(label) + " Cubic";
-	CDFcsv[columnIndex + 3].label = std::string(label) + " Quartic";
-
-	CDFcsv[columnIndex + 1].values.resize(CDF.size());
-	CDFcsv[columnIndex + 2].values.resize(CDF.size());
-	CDFcsv[columnIndex + 3].values.resize(CDF.size());
-
+	// Put the fit CDF into the CDF csv
+	CDFcsv[cdfcsvcolumnIndex + 1].label = std::string(label) + " Cubic";
+	CDFcsv[cdfcsvcolumnIndex + 1].values.resize(CDF.size());
 	for (size_t i = 0; i < CDF.size(); ++i)
 	{
 		float x = float(i) / float(CDF.size() - 1);
-		CDFcsv[columnIndex + 1].values[i] = fit2.Evaluate(x);
-		CDFcsv[columnIndex + 2].values[i] = fit3.Evaluate(x);
-		CDFcsv[columnIndex + 3].values[i] = fit4.Evaluate(x);
+		CDFcsv[cdfcsvcolumnIndex + 1].values[i] = fit.Evaluate(x);
 	}
-
-	// TODO: use the fits above to make the data uniform
 }
 
 int main(int argc, char** argv)
@@ -167,8 +166,12 @@ int main(int argc, char** argv)
 TODO:
 
 - better DFTs by averaging a bunch of smaller sections.
+! may want to hold off on this post til you put out the paper? meh maybe not
+- try a piecewise fit least squares fit
+ - could try a couple different degree fits and piecewise, and use whatever fits best.
 
-! may want to hold off on this post til you put out the paper?
+- this has a more direct solve using gauss jordan, than inverting a matrix and multiplying
+ - https://blog.demofox.org/2022/06/29/piecewise-least-squares-curve-fitting/
 
 LANDFILL:
 

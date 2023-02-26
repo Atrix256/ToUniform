@@ -56,7 +56,7 @@ print("CDFs")
 
 df = pd.read_csv('cdf.csv')
 
-graphsPerCell = 4
+graphsPerCell = 2
 
 columns = df.columns.values.tolist()
 columnCount = len(columns)
