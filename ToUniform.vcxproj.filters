@@ -15,5 +15,8 @@
     <ClInclude Include="pcg\pcg_basic.h">
       <Filter>pcg</Filter>
     </ClInclude>
+    <ClInclude Include="csv.h" />
+    <ClInclude Include="leastsquaresfit.h" />
+    <ClInclude Include="mathutils.h" />
   </ItemGroup>
 </Project>

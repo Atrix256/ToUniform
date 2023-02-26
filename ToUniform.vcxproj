@@ -131,6 +131,9 @@
     <ClCompile Include="pcg\pcg_basic.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="csv.h" />
+    <ClInclude Include="leastsquaresfit.h" />
+    <ClInclude Include="mathutils.h" />
     <ClInclude Include="pcg\pcg_basic.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

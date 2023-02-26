@@ -56,17 +56,23 @@ print("CDFs")
 
 df = pd.read_csv('cdf.csv')
 
+graphsPerCell = 4
+
 columns = df.columns.values.tolist()
 columnCount = len(columns)
+graphCount = int(columnCount / graphsPerCell)
 
-rows = int(columnCount / 4)
+rows = int(graphCount / 4)
 
-fig, ax = plt.subplots(rows, math.ceil(columnCount/rows), figsize=(15, 10))
+fig, ax = plt.subplots(rows, math.ceil(graphCount/rows), figsize=(15, 10))
 
-for i in range(columnCount):
-    print("  " + columns[i])
-    ax[i%rows, math.floor(i/rows)].plot(df[columns[i]])
-    ax[i%rows, math.floor(i/rows)].set_title(columns[i])
+for i in range(graphCount):
+    print("  " + columns[i*graphsPerCell])
+    ax[i%rows, math.floor(i/rows)].set_title(columns[i*graphsPerCell])
+    for j in reversed(range(graphsPerCell)):
+        line, = ax[i%rows, math.floor(i/rows)].plot(df[columns[i*graphsPerCell + j]])
+        line.set_label(columns[i*graphsPerCell+j])
+    ax[i%rows, math.floor(i/rows)].legend()
 
 plt.tight_layout()
 fig.savefig("_cdf.png", bbox_inches='tight')
