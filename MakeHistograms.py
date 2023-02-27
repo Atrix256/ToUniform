@@ -24,6 +24,7 @@ for i in range(columnCount):
 
 plt.tight_layout()
 fig.savefig("_histograms.png", bbox_inches='tight')
+fig.savefig("_histograms.pdf", bbox_inches='tight')
 
 # ================= DFTs =================
 
@@ -67,6 +68,7 @@ for i in range(columnCount):
 
 plt.tight_layout()
 fig.savefig("_DFTs.png", bbox_inches='tight')
+fig.savefig("_DFTs.pdf", bbox_inches='tight')
 
 # ================= CDFs =================
 
@@ -95,3 +97,4 @@ for i in range(graphCount):
 
 plt.tight_layout()
 fig.savefig("_cdf.png", bbox_inches='tight')
+fig.savefig("_cdf.pdf", bbox_inches='tight')

@@ -222,13 +222,13 @@ int main(int argc, char** argv)
 	// make noise and add to csv
 	CSV csv, CDFcsv;
 	KernelTest("Box2RedNoise", rng, csv, CDFcsv, { 1.0f, 1.0f });
-	KernelTest("Box3RedNoise", rng, csv, CDFcsv, { 1.0f, 1.0f, 1.0f });
 	KernelTest("Box4RedNoise", rng, csv, CDFcsv, { 1.0f, 1.0f, 1.0f, 1.0f });
-	KernelTest("Box5RedNoise", rng, csv, CDFcsv, { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f });
 	KernelTest("Box2BlueNoise", rng, csv, CDFcsv, { 1.0f, -1.0f });
-	KernelTest("Box3BlueNoise", rng, csv, CDFcsv, { 1.0f, -1.0f, 1.0f });
 	KernelTest("Box4BlueNoise", rng, csv, CDFcsv, { 1.0f, -1.0f, 1.0f, -1.0f });
-	KernelTest("Box5BlueNoise", rng, csv, CDFcsv, { 1.0f, -1.0f, 1.0f, -1.0f, 1.0f });
+
+	KernelTest("Gauss10RedNoise", rng, csv, CDFcsv, { 0.0002f, 0.0060f, 0.0606f, 0.2417f, 0.3829f, 0.2417f, 0.0606f, 0.0060f, 0.0002f });
+
+	KernelTest("Gauss10BlueNoise", rng, csv, CDFcsv, { -0.0002f, -0.0060f, -0.0606f, -0.2417f, 2.0f - 0.3829f, -0.2417f, -0.0606f, -0.0060f, -0.0002f });
 
 	// TODO: more types of noise, and gaussian filtered.
 
@@ -242,9 +242,16 @@ int main(int argc, char** argv)
 /*
 TODO:
 
+* maybe see how low of a LUT size you can get away with?
+* maybe need c1 continuity too? could also maybe have 0 derivatives on the sides?
+
+* more noise types, including gaussian
+
 ! can we put a title for a figure above all the sub figures?
 
 ! histogram using fit curves doesn't seem right
+
+! could maybe make a graph that showed the error between the two CDFs instead of showing them both next to each other.
 
 NOTES:
 
