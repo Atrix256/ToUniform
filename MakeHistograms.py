@@ -8,18 +8,19 @@ df = pd.read_csv('out.csv')
 columns = df.columns.values.tolist()
 columnCount = len(columns)
 
-rows = int(columnCount / 4)
-
 # ================= Histograms =================
 
 print("Histograms")
 
-fig, ax = plt.subplots(rows, math.ceil(columnCount/rows), figsize=(15, 10))
+diagramCols = min(int(math.sqrt(columnCount)), 4)
+diagramRows = math.ceil(columnCount / diagramCols)
+
+fig, ax = plt.subplots(diagramRows, diagramCols, figsize=(15, 10))
 
 for i in range(columnCount):
     print("  " + columns[i])
-    ax[i%rows, math.floor(i/rows)].hist(df[columns[i]], bins=100)
-    ax[i%rows, math.floor(i/rows)].set_title(columns[i])
+    ax[i%diagramRows, math.floor(i/diagramRows)].hist(df[columns[i]], bins=100)
+    ax[i%diagramRows, math.floor(i/diagramRows)].set_title(columns[i])
 
 plt.tight_layout()
 fig.savefig("_histograms.png", bbox_inches='tight')
@@ -28,7 +29,10 @@ fig.savefig("_histograms.png", bbox_inches='tight')
 
 print("DFT")
 
-fig, ax = plt.subplots(rows, math.ceil(columnCount/rows), figsize=(15, 10))
+diagramCols = min(int(math.sqrt(columnCount)), 4)
+diagramRows = math.ceil(columnCount / diagramCols)
+
+fig, ax = plt.subplots(diagramRows, diagramCols, figsize=(15, 10))
 
 numDFTsAvgd = 1000
 
@@ -51,8 +55,8 @@ for i in range(columnCount):
             alpha = 1.0 / float(dftIndex + 1)
             AvgDFT = AvgDFT * (1.0 - alpha) + DFT * alpha
 
-    ax[i%rows, math.floor(i/rows)].plot(AvgDFT)
-    ax[i%rows, math.floor(i/rows)].set_title(columns[i])
+    ax[i%diagramRows, math.floor(i/diagramRows)].plot(AvgDFT)
+    ax[i%diagramRows, math.floor(i/diagramRows)].set_title(columns[i])
     #ax[i%rows, math.floor(i/rows)].get_xaxis().set_visible(False)
     #ax[i%rows, math.floor(i/rows)].get_yaxis().set_visible(False)
     #freq = np.fft.fftfreq(DFT.size, d=0.1)
@@ -76,17 +80,18 @@ columns = df.columns.values.tolist()
 columnCount = len(columns)
 graphCount = int(columnCount / graphsPerCell)
 
-rows = int(graphCount / 4)
+diagramCols = min(int(math.sqrt(graphCount)), 4)
+diagramRows = math.ceil(graphCount / diagramCols)
 
-fig, ax = plt.subplots(rows, math.ceil(graphCount/rows), figsize=(15, 10))
+fig, ax = plt.subplots(diagramRows, diagramCols, figsize=(15, 10))
 
 for i in range(graphCount):
     print("  " + columns[i*graphsPerCell])
-    ax[i%rows, math.floor(i/rows)].set_title(columns[i*graphsPerCell])
+    ax[i%diagramRows, math.floor(i/diagramRows)].set_title(columns[i*graphsPerCell])
     for j in reversed(range(graphsPerCell)):
-        line, = ax[i%rows, math.floor(i/rows)].plot(df[columns[i*graphsPerCell + j]])
+        line, = ax[i%diagramRows, math.floor(i/diagramRows)].plot(df[columns[i*graphsPerCell + j]])
         line.set_label(columns[i*graphsPerCell+j])
-    ax[i%rows, math.floor(i/rows)].legend()
+    ax[i%diagramRows, math.floor(i/diagramRows)].legend()
 
 plt.tight_layout()
 fig.savefig("_cdf.png", bbox_inches='tight')

@@ -165,15 +165,14 @@ int main(int argc, char** argv)
 /*
 TODO:
 
-- better DFTs by averaging a bunch of smaller sections.
-! may want to hold off on this post til you put out the paper? meh maybe not
 - try a piecewise fit least squares fit
  - could try a couple different degree fits and piecewise, and use whatever fits best.
 
-- make the python automatically try to make a square out of the diagrams, as best as it can
+NOTES:
 
 - this has a more direct solve using gauss jordan, than inverting a matrix and multiplying
  - https://blog.demofox.org/2022/06/29/piecewise-least-squares-curve-fitting/
+- could also mention the piecewise and weighted least squares fitting.
 
 LANDFILL:
 
@@ -186,6 +185,7 @@ LANDFILL:
  * two make a trapezoid.
  * more make something more generalized.
  * maybe make a PDF through sampling, then integrate
+
 
 
 */
