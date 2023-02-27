@@ -221,14 +221,19 @@ int main(int argc, char** argv)
 
 	// make noise and add to csv
 	CSV csv, CDFcsv;
-	KernelTest("Box2RedNoise", rng, csv, CDFcsv, { 1.0f, 1.0f });
-	KernelTest("Box4RedNoise", rng, csv, CDFcsv, { 1.0f, 1.0f, 1.0f, 1.0f });
-	KernelTest("Box2BlueNoise", rng, csv, CDFcsv, { 1.0f, -1.0f });
-	KernelTest("Box4BlueNoise", rng, csv, CDFcsv, { 1.0f, -1.0f, 1.0f, -1.0f });
+	KernelTest("Box3RedNoise", rng, csv, CDFcsv, { 1.0f, 1.0f, 1.0f });
+	KernelTest("Box5RedNoise", rng, csv, CDFcsv, { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f });
+	KernelTest("Box3BlueNoise", rng, csv, CDFcsv, { -1.0f, 1.0f, -1.0f });
+
+	KernelTest("Box3BlueNoise2", rng, csv, CDFcsv, { 1.0f, -1.0f, 1.0f });
+
+	KernelTest("Box5BlueNoise", rng, csv, CDFcsv, { 1.0f, -1.0f, 1.0f, -1.0f, 1.0f });
 
 	KernelTest("Gauss10RedNoise", rng, csv, CDFcsv, { 0.0002f, 0.0060f, 0.0606f, 0.2417f, 0.3829f, 0.2417f, 0.0606f, 0.0060f, 0.0002f });
 
-	KernelTest("Gauss10BlueNoise", rng, csv, CDFcsv, { -0.0002f, -0.0060f, -0.0606f, -0.2417f, 1.0f - 0.3829f, -0.2417f, -0.0606f, -0.0060f, -0.0002f });
+	//KernelTest("Gauss10BlueNoiseNarrow", rng, csv, CDFcsv, { -0.0002f, -0.0060f, -0.0606f, -0.2417f, 1.0f - 0.3829f, -0.2417f, -0.0606f, -0.0060f, -0.0002f });
+
+	KernelTest("Gauss10BlueNoise", rng, csv, CDFcsv, { 0.0002f, -0.0060f, 0.0606f, -0.2417f, 0.3829f, -0.2417f, 0.0606f, -0.0060f, 0.0002f });
 
 	// TODO: more types of noise, and gaussian filtered.
 
@@ -242,6 +247,8 @@ int main(int argc, char** argv)
 /*
 TODO:
 
+? when making an LPF vs HPF, how do you control whether it's concave or convex?
+
 * maybe see how low of a LUT size you can get away with?
 * maybe need c1 continuity too? could also maybe have 0 derivatives on the sides?
 * the blue noise doesn't attenuate low frequencies very much
@@ -254,6 +261,8 @@ TODO:
 
 ! could maybe make a graph that showed the error between the two CDFs instead of showing them both next to each other.
 
+* if you can fit the cdf well, make some simple code to generate colored noise
+
 NOTES:
 
 - this has a more direct solve using gauss jordan, than inverting a matrix and multiplying
@@ -264,6 +273,8 @@ NOTES:
  - i limited it to 3 for both, but you could let it go higher in either
  - same shape histogram for same number of dice, so don't need to do this
  ? is that true for weighted dice though? no...
+
+ ! Quick (?) blog post - better sharpening kernel by alternating pos and negative in low pass kernel.
 
 LANDFILL:
 
