@@ -57,7 +57,11 @@ void FindBestPolynomialFit_Order_Pieces(const std::vector<float>& CDF, float& lo
 		{
 			float xmin = float(pieceIndex) / float(PIECES);
 			float xmax = float(pieceIndex + 1) / float(PIECES);
-			formula << " x in [" << xmin << ", " << xmax << ")\n";
+
+			if (pieceIndex + 1 < PIECES)
+				formula << " x in [" << xmin << ", " << xmax << ")\n";
+			else
+				formula << " x in [" << xmin << ", " << xmax << "]\n";
 		}
 
 		formula << "  y = ";
@@ -111,7 +115,7 @@ void FindBestPolynomialFit_Order(const std::vector<float>& CDF, float& lowestRMS
 	FindBestPolynomialFit_Order_Pieces<ORDER, 1>(CDF, lowestRMSE, bestFormula, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
 	FindBestPolynomialFit_Order_Pieces<ORDER, 2>(CDF, lowestRMSE, bestFormula, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
 	FindBestPolynomialFit_Order_Pieces<ORDER, 3>(CDF, lowestRMSE, bestFormula, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
-	//FindBestPolynomialFit_Order_Pieces<ORDER, 4>(CDF, lowestRMSE, bestFormula, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
+	FindBestPolynomialFit_Order_Pieces<ORDER, 4>(CDF, lowestRMSE, bestFormula, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
 	//FindBestPolynomialFit_Order_Pieces<ORDER, 5>(CDF, lowestRMSE, bestFormula, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
 }
 
@@ -129,7 +133,7 @@ void FindBestPolynomialFit(const std::vector<float>& CDF, CSV& csv, CSV& CDFcsv,
 
 void KernelTest(const char* label, pcg32_random_t& rng, CSV& csv, CSV& CDFcsv, const std::vector<float>& kernel)
 {
-	printf("%s\n", label);
+	printf("\n%s\n", label);
 
 	// reserve space in the CSV for this data.
 	// 0) The filtered white noise
@@ -238,12 +242,9 @@ int main(int argc, char** argv)
 /*
 TODO:
 
-- try a piecewise fit least squares fit
- - could try a couple different degree fits and piecewise, and use whatever fits best.
-
 ! can we put a title for a figure above all the sub figures?
 
-? should you PCA instead of fitting curves? i don't think that applies here but...??
+! histogram using fit curves doesn't seem right
 
 NOTES:
 

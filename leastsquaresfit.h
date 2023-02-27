@@ -29,27 +29,55 @@ public:
 	void CalculateCoefficients()
 	{
 		static const int ATAPieceWidth = ORDER + 1;
-		static const int ATAMatrixWidthHeight = ATAPieceWidth * PIECES;
-		static const int ATAMtrixAugmentedWidth = ATAMatrixWidthHeight + 1;
+		static const int ATAMatrixConstraints = PIECES - 1;
+		static const int ATAMatrixHeightNoConstraints = ATAPieceWidth * PIECES;
+		static const int ATAMatrixHeight = ATAMatrixHeightNoConstraints + ATAMatrixConstraints;
+		static const int ATAMtrixAugmentedWidth = ATAMatrixHeight + 1;
+		static const int ATAMatrixCoefficients = ATAPieceWidth * PIECES;
 
-		// make the full ATA matrix, as an augmeted matrix with the ATY matrix on the right
-		std::array<std::array<double, ATAMtrixAugmentedWidth>, ATAMatrixWidthHeight> ATA = {};
-		for (int iy = 0; iy < ATAMatrixWidthHeight; ++iy)
+		// make the ATA matrix, as an augmeted matrix with the ATY matrix on the right.
+		std::array<std::array<double, ATAMtrixAugmentedWidth>, ATAMatrixHeight> ATA = {};
+		for (int iy = 0; iy < ATAMatrixHeightNoConstraints; ++iy)
 		{
-			ATA[iy][ATAMatrixWidthHeight] = m_ATY[iy / ATAPieceWidth][iy % ATAPieceWidth];
+			ATA[iy][ATAMtrixAugmentedWidth - 1] = m_ATY[iy / ATAPieceWidth][iy % ATAPieceWidth];
 
 			int pieceIndex = iy / ATAPieceWidth;
 			for (int ix = 0; ix < ATAPieceWidth; ++ix)
 				ATA[iy][ix + pieceIndex * ATAPieceWidth] = m_ATA[pieceIndex][ix + iy % ATAPieceWidth];
 		}
 
+		// fill out the C0 constraints
+		for (int constraint = 0; constraint < ATAMatrixConstraints; ++constraint)
+		{
+			int pieceIndex1 = constraint;
+			int pieceIndex2 = constraint + 1;
+
+			int row = ATAMatrixHeightNoConstraints + constraint;
+
+			float x = float(pieceIndex2) / float(PIECES);
+
+			double xpow = 1.0;
+			for (int index = 0; index < ORDER + 1; ++index)
+			{
+				// C
+				ATA[row][pieceIndex1 * (ORDER + 1) + index] = xpow;
+				ATA[row][pieceIndex2 * (ORDER + 1) + index] = -xpow;
+
+				// C^T
+				ATA[pieceIndex1 * (ORDER + 1) + index][ATAPieceWidth * PIECES + constraint] = xpow;
+				ATA[pieceIndex2 * (ORDER + 1) + index][ATAPieceWidth * PIECES + constraint] = -xpow;
+
+				xpow *= x;
+			}
+		}
+
 		// invert the ATA matrix
-		for (int targetColumn = 0; targetColumn < ATAMatrixWidthHeight; ++targetColumn)
+		for (int targetColumn = 0; targetColumn < ATAMtrixAugmentedWidth - 1; ++targetColumn)
 		{
 			// Find the row with the biggest value in this column
 			int bestRow = targetColumn;
 			double bestRowValue = ATA[targetColumn][targetColumn];
-			for (int row = targetColumn + 1; row < ATAMatrixWidthHeight; ++row)
+			for (int row = targetColumn + 1; row < ATAMtrixAugmentedWidth - 1; ++row)
 			{
 				if (std::abs(ATA[row][targetColumn]) > std::abs(bestRowValue))
 				{
@@ -63,7 +91,7 @@ public:
 				ATA[bestRow][column] /= bestRowValue;
 
 			// Subtract multiples of this row from other rows to make them have a 0 in this column
-			for (int row = 0; row < ATAMatrixWidthHeight; ++row)
+			for (int row = 0; row < ATAMatrixHeight; ++row)
 			{
 				if (row == bestRow)
 					continue;
@@ -83,8 +111,8 @@ public:
 		}
 
 		// The coefficients are on the right side
-		for (int coefficientIndex = 0; coefficientIndex < ATAMatrixWidthHeight; ++coefficientIndex)
-			m_coefficients[coefficientIndex / ATAPieceWidth][coefficientIndex % ATAPieceWidth] = ATA[coefficientIndex][ATAMatrixWidthHeight];
+		for (int coefficientIndex = 0; coefficientIndex < ATAMatrixCoefficients; ++coefficientIndex)
+			m_coefficients[coefficientIndex / ATAPieceWidth][coefficientIndex % ATAPieceWidth] = ATA[coefficientIndex][ATAMtrixAugmentedWidth - 1];
 	}
 
 	float Evaluate(float x)
