@@ -228,7 +228,7 @@ int main(int argc, char** argv)
 
 	KernelTest("Gauss10RedNoise", rng, csv, CDFcsv, { 0.0002f, 0.0060f, 0.0606f, 0.2417f, 0.3829f, 0.2417f, 0.0606f, 0.0060f, 0.0002f });
 
-	KernelTest("Gauss10BlueNoise", rng, csv, CDFcsv, { -0.0002f, -0.0060f, -0.0606f, -0.2417f, 2.0f - 0.3829f, -0.2417f, -0.0606f, -0.0060f, -0.0002f });
+	KernelTest("Gauss10BlueNoise", rng, csv, CDFcsv, { -0.0002f, -0.0060f, -0.0606f, -0.2417f, 1.0f - 0.3829f, -0.2417f, -0.0606f, -0.0060f, -0.0002f });
 
 	// TODO: more types of noise, and gaussian filtered.
 
@@ -244,6 +244,7 @@ TODO:
 
 * maybe see how low of a LUT size you can get away with?
 * maybe need c1 continuity too? could also maybe have 0 derivatives on the sides?
+* the blue noise doesn't attenuate low frequencies very much
 
 * more noise types, including gaussian
 
