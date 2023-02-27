@@ -30,14 +30,28 @@ print("DFT")
 
 fig, ax = plt.subplots(rows, math.ceil(columnCount/rows), figsize=(15, 10))
 
+numDFTsAvgd = 1000
+
 for i in range(columnCount):
     print("  " + columns[i])
     data = df[columns[i]].to_numpy()
-    DFT = np.fft.fft(data)
-    DFT[0] = 0 # remove DC
-    DFT = np.fft.fftshift(DFT)
-    DFT = np.log(1 + abs(DFT))
-    ax[i%rows, math.floor(i/rows)].plot(DFT)
+
+    AvgDFT = None
+    for dftIndex in range(numDFTsAvgd):
+        startIndex = int(dftIndex * len(data) / numDFTsAvgd)
+        stopIndex = int((dftIndex+1) * len(data) / numDFTsAvgd)
+        stopIndex = min(stopIndex, len(data))
+        DFT = np.fft.fft(data[startIndex:stopIndex])
+        DFT[0] = 0 # remove DC
+        DFT = np.fft.fftshift(DFT)
+        DFT = np.log(1 + abs(DFT))
+        if dftIndex == 0:
+            AvgDFT = DFT
+        else:
+            alpha = 1.0 / float(dftIndex + 1)
+            AvgDFT = AvgDFT * (1.0 - alpha) + DFT * alpha
+
+    ax[i%rows, math.floor(i/rows)].plot(AvgDFT)
     ax[i%rows, math.floor(i/rows)].set_title(columns[i])
     #ax[i%rows, math.floor(i/rows)].get_xaxis().set_visible(False)
     #ax[i%rows, math.floor(i/rows)].get_yaxis().set_visible(False)
