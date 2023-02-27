@@ -26,15 +26,13 @@ public:
 
 	void CalculateCoefficients()
 	{
-		// make the full ATA matrix, as an augmeted matrix with the identity matrix on the right
-		std::array<std::array<double, 2 * (N + 1)>, N + 1> ATA;
+		// make the full ATA matrix, as an augmeted matrix with the ATY matrix on the right
+		std::array<std::array<double, N + 2>, N + 1> ATA;
 		for (int iy = 0; iy < N + 1; ++iy)
 		{
+			ATA[iy][N + 1] = m_ATY[iy];
 			for (int ix = 0; ix < N + 1; ++ix)
-			{
 				ATA[iy][ix] = m_ATA[ix + iy];
-				ATA[iy][ix + N + 1] = (ix == iy) ? 1.0 : 0.0;
-			}
 		}
 
 		// invert the ATA matrix
@@ -53,7 +51,7 @@ public:
 			}
 
 			// Divide the row by the value to make a 1 in the column
-			for (int column = 0; column < 2 * (N + 1); ++column)
+			for (int column = 0; column < N + 2; ++column)
 				ATA[bestRow][column] /= bestRowValue;
 
 			// Subtract multiples of this row from other rows to make them have a 0 in this column
@@ -64,25 +62,21 @@ public:
 
 				double multiplier = ATA[row][targetColumn];
 
-				for (int column = 0; column < 2 * (N + 1); ++column)
+				for (int column = 0; column < N + 2; ++column)
 					ATA[row][column] -= ATA[bestRow][column] * multiplier;
 			}
 
 			// Swap this row into the targetColumn'th row
 			if (bestRow != targetColumn)
 			{
-				for (int column = 0; column < 2 * (N + 1); ++column)
+				for (int column = 0; column < N + 2; ++column)
 					std::swap(ATA[bestRow][column], ATA[targetColumn][column]);
 			}
 		}
 
-		// Multiply ATA^-1 by ATY to get the coefficients
+		// The coefficients are on the right side
 		for (int coefficientIndex = 0; coefficientIndex < N + 1; ++coefficientIndex)
-		{
-			m_coefficients[coefficientIndex] = 0.0f;
-			for (int index = 0; index < N + 1; ++index)
-				m_coefficients[coefficientIndex] += ATA[coefficientIndex][N + 1 + index] * m_ATY[index];
-		}
+			m_coefficients[coefficientIndex] = ATA[coefficientIndex][N + 1];
 	}
 
 	float Evaluate(float x)
