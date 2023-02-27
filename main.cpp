@@ -31,7 +31,6 @@ void KernelTest(const char* label, pcg32_random_t& rng, CSV& csv, CSV& CDFcsv, c
 	csv.resize(csvcolumnIndex + 3);
 	csv[csvcolumnIndex].label = label;
 	csv[csvcolumnIndex + 1].label = std::string(label) + "_ToUniform";
-	csv[csvcolumnIndex + 2].label = std::string(label) + "_ToUniformQuadraticFit";
 
 	// make white noise
 	std::vector<float> whiteNoise(c_numberCount);
@@ -115,6 +114,7 @@ void KernelTest(const char* label, pcg32_random_t& rng, CSV& csv, CSV& CDFcsv, c
 	printf("\n");
 
 	// Put the values through the polynomial fit CDF (inverted, inverted CDF) to make them be a uniform distribution
+	csv[csvcolumnIndex + 2].label = std::string(label) + "_ToUniformQuadraticFit";
 	csv[csvcolumnIndex + 2].values.resize(c_numberCount);
 	for (size_t index = 0; index < c_numberCount; ++index)
 	{
