@@ -5,14 +5,12 @@
 #include "csv.h"
 #include "mathutils.h"
 #include "leastsquaresfit.h"
+#include <sstream>
 
 #define DETERMINISTIC() false
 
 // The size of the list of random numbers output
 static const size_t c_numberCount = 10000000;
-
-// TODO: uncomment the above
-//static const size_t c_numberCount = 200;
 
 // Bucket count of histogram that makes the PDF and CDF
 static const size_t c_histogramBucketCount = 1024;
@@ -22,11 +20,121 @@ float PCGRandomFloat01(pcg32_random_t& rng)
 	return ldexpf((float)pcg32_random_r(&rng), -32);
 }
 
+template <size_t ORDER, size_t PIECES>
+void FindBestPolynomialFit_Order_Pieces(const std::vector<float>& CDF, float& lowestRMSE, std::string& bestFormula, CSV& csv, CSV& CDFcsv, int csvcolumnIndex, int cdfcsvcolumnIndex, const char* label)
+{
+	// fit a piecewise polynomial to the CDF
+	LeastSquaresPolynomialFit<ORDER, PIECES> fit;
+	for (size_t i = 0; i < CDF.size(); ++i)
+	{
+		float x = float(i) / float(CDF.size());
+		float y = CDF[i];
+		fit.AddPoint(x, y);
+	}
+
+	fit.CalculateCoefficients();
+
+	// Get the RMSE of this fit
+	float RMSE = 0.0f;
+	for (size_t i = 0; i < CDF.size(); ++i)
+	{
+		float percent = float(i) / float(CDF.size() - 1);
+		float error = CDF[i] - fit.Evaluate(percent);
+		RMSE = Lerp(RMSE, error * error, 1.0f / float(i + 1));
+	}
+	RMSE = std::sqrt(RMSE);
+
+	// if the RMSE is higher, don't take this fit
+	if (RMSE >= lowestRMSE)
+		return;
+
+	// write the function so the best one can be printed out later
+	std::stringstream formula;
+	formula << " Order " << ORDER << " with " << PIECES << " pieces. RMSE = " << RMSE << "\n";
+	for (size_t pieceIndex = 0; pieceIndex < PIECES; ++pieceIndex)
+	{
+		if (PIECES > 1)
+		{
+			float xmin = float(pieceIndex) / float(PIECES);
+			float xmax = float(pieceIndex + 1) / float(PIECES);
+			formula << " x in [" << xmin << ", " << xmax << ")\n";
+		}
+
+		formula << "  y = ";
+		bool first = true;
+		for (size_t i = 0; i < fit.m_coefficients[pieceIndex].size(); ++i)
+		{
+			if (!first)
+				formula << " + ";
+
+			int xpower = int(fit.m_coefficients[pieceIndex].size() - i - 1);
+
+			if (xpower == 0)
+				formula << fit.m_coefficients[pieceIndex][xpower];
+			else if (xpower == 1)
+				formula << fit.m_coefficients[pieceIndex][xpower] << " x";
+			else
+				formula << fit.m_coefficients[pieceIndex][xpower] << " x^" << xpower;
+
+			first = false;
+		}
+		formula << "\n";
+	}
+	bestFormula = formula.str();
+
+	// Set the label
+	char buffer[1024];
+	sprintf_s(buffer, "%s_ToUniformFit_O%i_C%i", label, (int)ORDER, (int)PIECES);
+	csv[csvcolumnIndex + 2].label = buffer;
+
+	// Put the values through the polynomial fit CDF (inverted, inverted CDF) to make them be a uniform distribution
+	csv[csvcolumnIndex + 2].values.resize(c_numberCount);
+	for (size_t index = 0; index < c_numberCount; ++index)
+	{
+		float x = csv[csvcolumnIndex].values[index];
+		csv[csvcolumnIndex + 2].values[index] = fit.Evaluate(x);
+	}
+
+	// Put the fit CDF into the CDF csv
+	CDFcsv[cdfcsvcolumnIndex + 1].label = buffer;
+	CDFcsv[cdfcsvcolumnIndex + 1].values.resize(CDF.size());
+	for (size_t i = 0; i < CDF.size(); ++i)
+	{
+		float x = float(i) / float(CDF.size() - 1);
+		CDFcsv[cdfcsvcolumnIndex + 1].values[i] = fit.Evaluate(x);
+	}
+}
+
+template <size_t ORDER>
+void FindBestPolynomialFit_Order(const std::vector<float>& CDF, float& lowestRMSE, std::string& bestFormula, CSV& csv, CSV& CDFcsv, int csvcolumnIndex, int cdfcsvcolumnIndex, const char* label)
+{
+	FindBestPolynomialFit_Order_Pieces<ORDER, 1>(CDF, lowestRMSE, bestFormula, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
+	FindBestPolynomialFit_Order_Pieces<ORDER, 2>(CDF, lowestRMSE, bestFormula, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
+	FindBestPolynomialFit_Order_Pieces<ORDER, 3>(CDF, lowestRMSE, bestFormula, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
+	//FindBestPolynomialFit_Order_Pieces<ORDER, 4>(CDF, lowestRMSE, bestFormula, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
+	//FindBestPolynomialFit_Order_Pieces<ORDER, 5>(CDF, lowestRMSE, bestFormula, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
+}
+
+void FindBestPolynomialFit(const std::vector<float>& CDF, CSV& csv, CSV& CDFcsv, int csvcolumnIndex, int cdfcsvcolumnIndex, const char* label)
+{
+	float lowestRMSE = FLT_MAX;
+	std::string bestFormula;
+	FindBestPolynomialFit_Order<1>(CDF, lowestRMSE, bestFormula, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
+	FindBestPolynomialFit_Order<2>(CDF, lowestRMSE, bestFormula, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
+	FindBestPolynomialFit_Order<3>(CDF, lowestRMSE, bestFormula, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
+	//FindBestPolynomialFit_Order<4>(CDF, lowestRMSE, bestFormula, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
+	//FindBestPolynomialFit_Order<5>(CDF, lowestRMSE, bestFormula, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
+	printf("%s", bestFormula.c_str());
+}
+
 void KernelTest(const char* label, pcg32_random_t& rng, CSV& csv, CSV& CDFcsv, const std::vector<float>& kernel)
 {
 	printf("%s\n", label);
 
-	// reserve space in the CSV for this data
+	// reserve space in the CSV for this data.
+	// 0) The filtered white noise
+	// 1) To uniform with CDF
+	// 2) To uniform with least squares
 	int csvcolumnIndex = (int)csv.size();
 	csv.resize(csvcolumnIndex + 3);
 	csv[csvcolumnIndex].label = label;
@@ -93,43 +201,8 @@ void KernelTest(const char* label, pcg32_random_t& rng, CSV& csv, CSV& CDFcsv, c
 	CDFcsv[cdfcsvcolumnIndex].label = std::string(label) + " CDF";
 	CDFcsv[cdfcsvcolumnIndex].values = CDF;
 
-	// Fit the CDF with a polynomial
-	LeastSquaresPolynomialFit<3> fit;
-	for (size_t i = 0; i < CDF.size(); ++i)
-	{
-		float x = float(i) / float(CDF.size());
-		float y = CDF[i];
-		fit.AddPoint(x, y);
-	}
-	fit.CalculateCoefficients();
-
-	// print out the coefficients
-	printf("  y = ");
-	bool first = true;
-	for (size_t i = 0; i < fit.m_coefficients.size(); ++i)
-	{
-		printf("%s%f x^%i", first ? "" : " + ", fit.m_coefficients[fit.m_coefficients.size() - i - 1], (int)i);
-		first = false;
-	}
-	printf("\n");
-
-	// Put the values through the polynomial fit CDF (inverted, inverted CDF) to make them be a uniform distribution
-	csv[csvcolumnIndex + 2].label = std::string(label) + "_ToUniformQuadraticFit";
-	csv[csvcolumnIndex + 2].values.resize(c_numberCount);
-	for (size_t index = 0; index < c_numberCount; ++index)
-	{
-		float x = csv[csvcolumnIndex].values[index];
-		csv[csvcolumnIndex + 2].values[index] = fit.Evaluate(x);
-	}
-
-	// Put the fit CDF into the CDF csv
-	CDFcsv[cdfcsvcolumnIndex + 1].label = std::string(label) + " Cubic";
-	CDFcsv[cdfcsvcolumnIndex + 1].values.resize(CDF.size());
-	for (size_t i = 0; i < CDF.size(); ++i)
-	{
-		float x = float(i) / float(CDF.size() - 1);
-		CDFcsv[cdfcsvcolumnIndex + 1].values[i] = fit.Evaluate(x);
-	}
+	// Find the best piecewise polynomial fit we can for this CDF, and use that
+	FindBestPolynomialFit(CDF, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
 }
 
 int main(int argc, char** argv)
@@ -168,11 +241,20 @@ TODO:
 - try a piecewise fit least squares fit
  - could try a couple different degree fits and piecewise, and use whatever fits best.
 
+! can we put a title for a figure above all the sub figures?
+
+? should you PCA instead of fitting curves? i don't think that applies here but...??
+
 NOTES:
 
 - this has a more direct solve using gauss jordan, than inverting a matrix and multiplying
  - https://blog.demofox.org/2022/06/29/piecewise-least-squares-curve-fitting/
 - could also mention the piecewise and weighted least squares fitting.
+
+- the best fit to the CDF seems to have the most segments and the highest order.
+ - i limited it to 3 for both, but you could let it go higher in either
+ - same shape histogram for same number of dice, so don't need to do this
+ ? is that true for weighted dice though? no...
 
 LANDFILL:
 
