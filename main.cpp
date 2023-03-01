@@ -243,6 +243,8 @@ int main(int argc, char** argv)
 /*
 TODO:
 
+* your CDF has both 0.0 and 1.0 in it. is that correct?
+
 * maybe see how low of a LUT size you can get away with?
  * down to 64 entries wasn't bad.
  * probably would be better if the lut was non linear but that'd be hard to look up
