@@ -22,6 +22,8 @@ if doHistograms:
 
     fig, ax = plt.subplots(diagramRows, diagramCols, figsize=(15, 10))
 
+    fig.suptitle('Histograms', fontsize=16)
+
     for i in range(columnCount):
         print("  " + columns[i])
         ax[i%diagramRows, math.floor(i/diagramRows)].hist(df[columns[i]], bins=100)
@@ -40,6 +42,8 @@ if doDFTs:
 
     fig, ax = plt.subplots(diagramRows, diagramCols, figsize=(15, 10))
 
+    fig.suptitle('DFTs', fontsize=16)
+
     numDFTsAvgd = 1000
 
     for i in range(columnCount):
@@ -55,7 +59,7 @@ if doDFTs:
 
             # zero out DC and only show the positive frequencies
             DFT[0] = 0
-            DFT = DFT[0:int(math.ceil(len(DFT)/2))]
+            DFT = DFT[1:int(math.ceil(len(DFT)/2))]
 
             #DFT = np.fft.fftshift(DFT)
             DFT = np.log(1 + abs(DFT))
@@ -99,6 +103,8 @@ if doCDFs:
 
     fig, ax = plt.subplots(diagramRows, diagramCols, figsize=(15, 10))
 
+    fig.suptitle('CDFs', fontsize=16)
+
     for i in range(graphCount):
         print("  " + columns[i*graphsPerCell])
         ax[i%diagramRows, math.floor(i/diagramRows)].set_title(columns[i*graphsPerCell])
@@ -115,6 +121,8 @@ if doCDFs:
     print("CDF Errors")
 
     fig, ax = plt.subplots(diagramRows, diagramCols, figsize=(15, 10))
+
+    fig.suptitle('CDF Errors', fontsize=16)
 
     for i in range(graphCount):
         print("  " + columns[i*graphsPerCell])

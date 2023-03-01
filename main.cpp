@@ -222,20 +222,16 @@ int main(int argc, char** argv)
 	// make noise and add to csv
 	CSV csv, CDFcsv;
 	KernelTest("Box3RedNoise", rng, csv, CDFcsv, { 1.0f, 1.0f, 1.0f });
-	//KernelTest("Box5RedNoise", rng, csv, CDFcsv, { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f });
 	KernelTest("Box3BlueNoise", rng, csv, CDFcsv, { -1.0f, 1.0f, -1.0f });
 
-	//KernelTest("Box3BlueNoise2", rng, csv, CDFcsv, { 1.0f, -1.0f, 1.0f });
+	KernelTest("Box5RedNoise", rng, csv, CDFcsv, { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f });
+	KernelTest("Box5BlueNoise", rng, csv, CDFcsv, { 1.0f, -1.0f, 1.0f, -1.0f, 1.0f });
 
-	//KernelTest("Box5BlueNoise", rng, csv, CDFcsv, { 1.0f, -1.0f, 1.0f, -1.0f, 1.0f });
-
-	//KernelTest("Gauss10RedNoise", rng, csv, CDFcsv, { 0.0002f, 0.0060f, 0.0606f, 0.2417f, 0.3829f, 0.2417f, 0.0606f, 0.0060f, 0.0002f });
-
-	KernelTest("Gauss10BlueNoiseNarrow", rng, csv, CDFcsv, { -0.0002f, -0.0060f, -0.0606f, -0.2417f, 1.0f - 0.3829f, -0.2417f, -0.0606f, -0.0060f, -0.0002f });
+	//KernelTest("Gauss10BlueNoiseNarrow", rng, csv, CDFcsv, { -0.0002f, -0.0060f, -0.0606f, -0.2417f, 1.0f - 0.3829f, -0.2417f, -0.0606f, -0.0060f, -0.0002f });
 
 	KernelTest("Gauss10BlueNoise", rng, csv, CDFcsv, { 0.0002f, -0.0060f, 0.0606f, -0.2417f, 0.3829f, -0.2417f, 0.0606f, -0.0060f, 0.0002f });
 
-	// TODO: more types of noise, and gaussian filtered.
+	// TODO: more types of noise. use FIR calculator?
 
 	printf("\nWriting CSVs...\n");
 	WriteCSV(csv, "out.csv");
@@ -247,23 +243,18 @@ int main(int argc, char** argv)
 /*
 TODO:
 
-? when making an LPF vs HPF, how do you control whether it's concave or convex?
-
+* get the 3 related DFTs into a single graph
 * maybe see how low of a LUT size you can get away with?
 * maybe need c1 continuity too? could also maybe have 0 derivatives on the sides?
-* the blue noise doesn't attenuate low frequencies very much
-
-* more noise types, including gaussian
 
 ! can we put a title for a figure above all the sub figures?
 
-! histogram using fit curves doesn't seem right
-
-! could maybe make a graph that showed the error between the two CDFs instead of showing them both next to each other.
-
-* if you can fit the cdf well, make some simple code to generate colored noise
+! should have some simple code to make colored uniform noise
 
 NOTES:
+
+? when making an LPF vs HPF, how do you control whether it's concave or convex?
+ * well, this thread has great info: https://mastodon.gamedev.place/@demofox/109935390123342971
 
 - this has a more direct solve using gauss jordan, than inverting a matrix and multiplying
  - https://blog.demofox.org/2022/06/29/piecewise-least-squares-curve-fitting/
