@@ -110,3 +110,20 @@ if doCDFs:
     plt.tight_layout()
     fig.savefig("_cdf.png", bbox_inches='tight')
     fig.savefig("_cdf.pdf", bbox_inches='tight')
+
+    # Do the CDF error graphs
+    print("CDF Errors")
+
+    fig, ax = plt.subplots(diagramRows, diagramCols, figsize=(15, 10))
+
+    for i in range(graphCount):
+        print("  " + columns[i*graphsPerCell])
+        ax[i%diagramRows, math.floor(i/diagramRows)].set_title(columns[i*graphsPerCell] + " Error")
+        for j in range(1, graphsPerCell):
+            line, = ax[i%diagramRows, math.floor(i/diagramRows)].plot(df[columns[i*graphsPerCell + j]] - df[columns[i*graphsPerCell + 0]])
+            line.set_label(columns[i*graphsPerCell+j])
+        ax[i%diagramRows, math.floor(i/diagramRows)].legend()
+
+    plt.tight_layout()
+    fig.savefig("_cdferror.png", bbox_inches='tight')
+    fig.savefig("_cdferror.pdf", bbox_inches='tight')
