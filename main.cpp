@@ -243,15 +243,15 @@ int main(int argc, char** argv)
 /*
 TODO:
 
-* get the 3 related DFTs into a single graph
 * maybe see how low of a LUT size you can get away with?
 * maybe need c1 continuity too? could also maybe have 0 derivatives on the sides?
+ * this basically could become a quadratic lut
 
-! can we put a title for a figure above all the sub figures?
-
-! should have some simple code to make colored uniform noise
+! should have some simple code to make colored uniform noise by the end. need it for the next post!
 
 NOTES:
+
+* a LUT is basically a piecewise linear curve with C0.
 
 ? when making an LPF vs HPF, how do you control whether it's concave or convex?
  * well, this thread has great info: https://mastodon.gamedev.place/@demofox/109935390123342971

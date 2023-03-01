@@ -37,8 +37,14 @@ if doHistograms:
 if doDFTs:
     print("DFT")
 
-    diagramCols = min(int(math.sqrt(columnCount)), 4)
-    diagramRows = math.ceil(columnCount / diagramCols)
+    graphsPerCell = 3
+
+    columns = df.columns.values.tolist()
+    columnCount = len(columns)
+    graphCount = int(columnCount / graphsPerCell)
+
+    diagramCols = min(int(math.sqrt(graphCount)), 4)
+    diagramRows = math.ceil(graphCount / diagramCols)    
 
     fig, ax = plt.subplots(diagramRows, diagramCols, figsize=(15, 10))
 
@@ -46,31 +52,37 @@ if doDFTs:
 
     numDFTsAvgd = 1000
 
-    for i in range(columnCount):
-        print("  " + columns[i])
-        data = df[columns[i]].to_numpy()
+    for i in range(graphCount):
+        print("  " + columns[i*graphsPerCell])
 
-        AvgDFT = None
-        for dftIndex in range(numDFTsAvgd):
-            startIndex = int(dftIndex * len(data) / numDFTsAvgd)
-            stopIndex = int((dftIndex+1) * len(data) / numDFTsAvgd)
-            stopIndex = min(stopIndex, len(data))
-            DFT = np.fft.fft(data[startIndex:stopIndex])
+        ax[i%diagramRows, math.floor(i/diagramRows)].set_title(columns[i*graphsPerCell])
 
-            # zero out DC and only show the positive frequencies
-            DFT[0] = 0
-            DFT = DFT[1:int(math.ceil(len(DFT)/2))]
+        lineStyles = ['-',':',':']
 
-            #DFT = np.fft.fftshift(DFT)
-            DFT = np.log(1 + abs(DFT))
-            if dftIndex == 0:
-                AvgDFT = DFT
-            else:
-                alpha = 1.0 / float(dftIndex + 1)
-                AvgDFT = AvgDFT * (1.0 - alpha) + DFT * alpha
+        for j in range(graphsPerCell):
+            data = df[columns[i*graphsPerCell + j]].to_numpy()
 
-        ax[i%diagramRows, math.floor(i/diagramRows)].plot(AvgDFT)
-        ax[i%diagramRows, math.floor(i/diagramRows)].set_title(columns[i])
+            AvgDFT = None
+            for dftIndex in range(numDFTsAvgd):
+                startIndex = int(dftIndex * len(data) / numDFTsAvgd)
+                stopIndex = int((dftIndex+1) * len(data) / numDFTsAvgd)
+                stopIndex = min(stopIndex, len(data))
+                DFT = np.fft.fft(data[startIndex:stopIndex])
+
+                # zero out DC and only show the positive frequencies
+                DFT[0] = 0
+                DFT = DFT[1:int(math.ceil(len(DFT)/2))]
+
+                #DFT = np.fft.fftshift(DFT)
+                DFT = np.log(1 + abs(DFT))
+                if dftIndex == 0:
+                    AvgDFT = DFT
+                else:
+                    alpha = 1.0 / float(dftIndex + 1)
+                    AvgDFT = AvgDFT * (1.0 - alpha) + DFT * alpha
+
+            line, = ax[i%diagramRows, math.floor(i/diagramRows)].plot(AvgDFT, lineStyles[j])
+            line.set_label(columns[i*graphsPerCell+j])
 
         labelsPos = []
         labels = []
@@ -81,6 +93,7 @@ if doDFTs:
             labels.append(labelIndex / (labelCount-1))
 
         ax[i%diagramRows, math.floor(i/diagramRows)].set_xticks(labelsPos, labels=labels)
+        ax[i%diagramRows, math.floor(i/diagramRows)].legend()
 
     plt.tight_layout()
     fig.savefig("_DFTs.png", bbox_inches='tight')
