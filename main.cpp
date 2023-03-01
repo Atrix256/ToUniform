@@ -247,9 +247,14 @@ TODO:
 * maybe need c1 continuity too? could also maybe have 0 derivatives on the sides?
  * this basically could become a quadratic lut
 
+* could try IIR too!
+
 ! should have some simple code to make colored uniform noise by the end. need it for the next post!
 
 NOTES:
+
+* This is all FIR filters.
+ * IIR filters could be interesting to explore, for making a stream of colored noise, and make it uniform with CDFs / fit CDFs
 
 * a LUT is basically a piecewise linear curve with C0.
 
@@ -264,6 +269,9 @@ NOTES:
  - i limited it to 3 for both, but you could let it go higher in either
  - same shape histogram for same number of dice, so don't need to do this
  ? is that true for weighted dice though? no...
+
+ * FIR calculator: http://demofox.org/DSPFIR/FIR.html
+ * IIR calculator: http://demofox.org/DSPIIR/IIR.html
 
  ! Quick (?) blog post - better sharpening kernel by alternating pos and negative in low pass kernel.
 
