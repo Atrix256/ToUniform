@@ -407,24 +407,20 @@ int main(int argc, char** argv)
 /*
 TODO:
 
-* try c1 continuity? to help the spikes?
-* maybe need c1 continuity too?
- * this basically could become a quadratic lut
-
 * the lut should have the steps centered on the graph, not be on one side of it (add a half or something)
  * the uniform distribution has this, but not the other code path. it should!
-
-* maybe see how low of a LUT size you can get away with?
- * down to 64 entries wasn't bad.
- * probably would be better if the lut was non linear spaced points but that'd be hard to look up
- ! for CDF graph, have a "high resolution LUT" version, and then a smaller bucket count verison too
 
 ! should have some simple code to make colored uniform noise by the end. need it for the next post!
 
 NOTES:
 
+* Lut down to 64 entries wasn't bad.
+ * probably would be better if the lut was non linear spaced points but that'd be hard to look up
+
 * blue noise made by void and cluster, using a sigma of 1.0
  * blue noise "tiles well" so may be fine using a small amount of blue noise values (a few 100?) and re-using them.
+
+* C1 continuity helped the "devil horns" smooth out a bit, but they are still there
 
 FIR: 0.5, -2, 1
 http://demofox.org/DSPFIR/FIR.html
@@ -438,6 +434,7 @@ y = 0.500 * x(n) - 1.000 * x(n-1) + 0.500 * x(n-2) + 0.900 * y(n-1)
  * IIR filters could be interesting to explore, for making a stream of colored noise, and make it uniform with CDFs / fit CDFs
 
 * a LUT is basically a piecewise linear curve with C0.
+ * could have it be piecewise quadratic with c1 as well.
 
 ? when making an LPF vs HPF, how do you control whether it's concave or convex?
  * well, this thread has great info: https://mastodon.gamedev.place/@demofox/109935390123342971

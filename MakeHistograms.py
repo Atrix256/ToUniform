@@ -140,7 +140,7 @@ if doCDFs:
     for i in range(graphCount):
         print("  " + columns[i*graphsPerCell])
         ax[i%diagramRows, math.floor(i/diagramRows)].set_title(columns[i*graphsPerCell] + " Error")
-        for j in range(1, graphsPerCell):
+        for j in reversed(range(1, graphsPerCell)):
             line, = ax[i%diagramRows, math.floor(i/diagramRows)].plot(df[columns[i*graphsPerCell + j]] - df[columns[i*graphsPerCell + 0]])
             line.set_label(columns[i*graphsPerCell+j])
         ax[i%diagramRows, math.floor(i/diagramRows)].legend()

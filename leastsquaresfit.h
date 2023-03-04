@@ -30,9 +30,14 @@ public:
 	{
 		static const int ATAPieceWidth = ORDER + 1;
 
-		// a point constraint between each piece
-		// also a point constraint for f(0) = 0 and f(1) = 1
-		static const int ATAMatrixConstraints = PIECES - 1 + 2;
+		// C0 constraints:
+		//  2: f(0) = 0 and f(1) = 1
+		//  PIECES - 1 : between each piece.
+		// C1 constraints:
+		//  PIECES - 1 : if ORDER > 1
+		static const int PositionalConstraints = 2 + PIECES - 1;
+		static const int DerivativeConstraints = (ORDER > 1) ? PIECES - 1 : 0;
+		static const int ATAMatrixConstraints = PositionalConstraints + DerivativeConstraints;
 
 		static const int ATAMatrixHeightNoConstraints = ATAPieceWidth * PIECES;
 		static const int ATAMatrixHeight = ATAMatrixHeightNoConstraints + ATAMatrixConstraints;
@@ -50,53 +55,83 @@ public:
 				ATA[iy][ix + pieceIndex * ATAPieceWidth] = m_ATA[pieceIndex][ix + iy % ATAPieceWidth];
 		}
 
-		// fill out the C0 constraints between pieces
-		for (int constraint = 0; constraint < PIECES - 1; ++constraint)
-		{
-			int pieceIndex1 = constraint;
-			int pieceIndex2 = constraint + 1;
-
-			int row = ATAMatrixHeightNoConstraints + constraint;
-
-			float x = float(pieceIndex2) / float(PIECES);
-
-			double xpow = 1.0;
-			for (int index = 0; index < ORDER + 1; ++index)
-			{
-				// C
-				ATA[row][pieceIndex1 * (ORDER + 1) + index] = xpow;
-				ATA[row][pieceIndex2 * (ORDER + 1) + index] = -xpow;
-
-				// C^T
-				ATA[pieceIndex1 * (ORDER + 1) + index][ATAPieceWidth * PIECES + constraint] = xpow;
-				ATA[pieceIndex2 * (ORDER + 1) + index][ATAPieceWidth * PIECES + constraint] = -xpow;
-
-				xpow *= x;
-			}
-		}
-
-		// make constraints for f(0) = 0 and f(1) = 1
-		for (int constraint = PIECES - 1; constraint < ATAMatrixConstraints; ++constraint)
+		// The C0 constraints for f(0) = 0 and f(1) = 1
+		for (int constraint = 0; constraint < 2; ++constraint)
 		{
 			int row = ATAMatrixHeightNoConstraints + constraint;
 
-			float x = (constraint == PIECES - 1) ? 0.0f : 1.0f;
-			float z = x;
-			int pieceIndex = (constraint == PIECES - 1) ? 0 : PIECES - 1;
+			float x = (constraint == 0) ? 0.0f : 1.0f;
+			float z = (constraint == 0) ? 0.0f : 1.0f;
+			int pieceIndex = (constraint == 0) ? 0 : PIECES - 1;
 
 			// Z
 			ATA[row][ATAMtrixAugmentedWidth - 1] = z;
 
 			double xpow = 1.0;
-			for (int index = 0; index < ORDER + 1; ++index)
+			for (int index = 0; index < ATAPieceWidth; ++index)
 			{
 				// C
-				ATA[row][pieceIndex * (ORDER + 1) + index] = xpow;
+				ATA[row][pieceIndex * ATAPieceWidth + index] = xpow;
 
 				// C^T
-				ATA[pieceIndex * (ORDER + 1) + index][ATAPieceWidth * PIECES + constraint] = xpow;
+				ATA[pieceIndex * ATAPieceWidth + index][row] = xpow;
 
 				xpow *= x;
+			}
+		}
+
+		// The C0 constraints between pieces
+		for (int constraint = 0; constraint < PIECES - 1; ++constraint)
+		{
+			int pieceIndex1 = constraint;
+			int pieceIndex2 = constraint + 1;
+
+			int row = ATAMatrixHeightNoConstraints + constraint + 2;
+
+			float x = float(pieceIndex2) / float(PIECES);
+
+			double xpow = 1.0;
+			for (int index = 0; index < ATAPieceWidth; ++index)
+			{
+				// C
+				ATA[row][pieceIndex1 * ATAPieceWidth + index] = xpow;
+				ATA[row][pieceIndex2 * ATAPieceWidth + index] = -xpow;
+
+				// C^T
+				ATA[pieceIndex1 * ATAPieceWidth + index][row] = xpow;
+				ATA[pieceIndex2 * ATAPieceWidth + index][row] = -xpow;
+
+				xpow *= x;
+			}
+		}
+
+		// The C1 constraints between pieces
+		if (DerivativeConstraints > 0)
+		{
+			for (int constraint = 0; constraint < PIECES - 1; ++constraint)
+			{
+				int pieceIndex1 = constraint;
+				int pieceIndex2 = constraint + 1;
+
+				int row = ATAMatrixHeightNoConstraints + constraint + 2 + PIECES - 1;
+
+				float x = float(pieceIndex2) / float(PIECES);
+
+				double xpow = 1.0;
+				for (int index = 0; index < ATAPieceWidth; ++index)
+				{
+					double value = double(index + 1) * xpow;
+
+					// C
+					ATA[row][pieceIndex1 * ATAPieceWidth + index] = value;
+					ATA[row][pieceIndex2 * ATAPieceWidth + index] = -value;
+
+					// C^T
+					ATA[pieceIndex1 * ATAPieceWidth + index][row] = value;
+					ATA[pieceIndex2 * ATAPieceWidth + index][row] = -value;
+
+					xpow *= x;
+				}
 			}
 		}
 
