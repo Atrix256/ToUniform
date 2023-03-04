@@ -131,8 +131,122 @@ void FindBestPolynomialFit(const std::vector<float>& CDF, CSV& csv, CSV& CDFcsv,
 	printf("%s", bestFormula.c_str());
 }
 
+void IIRTest(const char* label, pcg32_random_t& rng, CSV& csv, CSV& CDFcsv, const std::vector<float>& xCoefficients, const std::vector<float>& yCoefficients)
+{
+	printf("\n%s\n", label);
+
+	// reserve space in the CSV for this data.
+	// 0) The filtered white noise
+	// 1) To uniform with CDF
+	// 2) To uniform with least squares
+	int csvcolumnIndex = (int)csv.size();
+	csv.resize(csvcolumnIndex + 3);
+	csv[csvcolumnIndex].label = label;
+	csv[csvcolumnIndex + 1].label = std::string(label) + "_ToUniform";
+
+	// make white noise
+	std::vector<float> whiteNoise(c_numberCount);
+	for (float& f : whiteNoise)
+		f = PCGRandomFloat01(rng);
+
+	// filter the white noise
+	std::vector<float> filteredWhiteNoise(c_numberCount, 0.0f);
+	for (int index = 0; index < c_numberCount; ++index)
+	{
+		float& out = filteredWhiteNoise[index];
+
+		// FIR filtering
+		for (size_t xIndex = 0; xIndex < xCoefficients.size(); ++xIndex)
+		{
+			if (xIndex > index)
+				break;
+
+			out += xCoefficients[xIndex] * whiteNoise[index - xIndex];
+		}
+
+		// IIR filtering feedback
+		for (size_t yIndex = 0; yIndex < yCoefficients.size(); ++yIndex)
+		{
+			if (yIndex >= index)
+				break;
+
+			out += yCoefficients[yIndex] * filteredWhiteNoise[index - yIndex - 1];
+		}
+	}
+
+	// normalize filtered noise to [0,1] and put it into the csv
+	csv[csvcolumnIndex].values = filteredWhiteNoise;
+	float themin = csv[csvcolumnIndex].values[0];
+	float themax = csv[csvcolumnIndex].values[0];
+	for (float f : csv[csvcolumnIndex].values)
+	{
+		themin = std::min(themin, f);
+		themax = std::max(themax, f);
+	}
+	for (float& f : csv[csvcolumnIndex].values)
+		f = (f - themin) / (themax - themin);
+
+	// Make a histogram
+	std::vector<int> counts(c_histogramBucketCount, 0);
+	for (float f : csv[csvcolumnIndex].values)
+	{
+		int bucket = std::min(int(f * float(c_histogramBucketCount)), (int)c_histogramBucketCount - 1);
+		counts[bucket]++;
+	}
+
+	// Make a PDF and a CDF
+	std::vector<float> PDF(c_histogramBucketCount);
+	std::vector<float> CDF(c_histogramBucketCount);
+	float lastCDFValue = 0.0f;
+	for (int index = 0; index < c_histogramBucketCount; ++index)
+	{
+		PDF[index] = float(counts[index]) / float(c_numberCount);
+		CDF[index] = lastCDFValue + PDF[index];
+		lastCDFValue = CDF[index];
+	}
+	CDF.insert(CDF.begin(), 0.0f);
+	CDF.push_back(1.0f);
+
+	// Put the values through the CDF (inverted, inverted CDF) to make them be a uniform distribution
+	csv[csvcolumnIndex + 1].values.resize(c_numberCount);
+	for (size_t index = 0; index < c_numberCount; ++index)
+	{
+		float x = csv[csvcolumnIndex].values[index];
+		float xindexf = std::min(x * float(c_histogramBucketCount), (float)(c_histogramBucketCount - 1));
+		int xindex1 = int(xindexf);
+		int xindex2 = std::min(xindex1 + 1, (int)c_histogramBucketCount - 1);
+		float xindexfract = xindexf - std::floor(xindexf);
+
+		float y1 = CDF[xindex1];
+		float y2 = CDF[xindex2];
+
+		csv[csvcolumnIndex + 1].values[index] = Lerp(y1, y2, xindexfract);
+	}
+
+	// Put the CDF into the CDF csv
+	int cdfcsvcolumnIndex = (int)CDFcsv.size();
+	CDFcsv.resize(cdfcsvcolumnIndex + 2);
+	CDFcsv[cdfcsvcolumnIndex].label = std::string(label) + " CDF";
+	CDFcsv[cdfcsvcolumnIndex].values = CDF;
+
+	// Find the best piecewise polynomial fit we can for this CDF, and use that
+	FindBestPolynomialFit(CDF, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
+}
+
 void KernelTest(const char* label, pcg32_random_t& rng, CSV& csv, CSV& CDFcsv, const std::vector<float>& kernel)
 {
+	/*
+	std::vector<float>& kernel = kernel_;
+	if (normalize)
+	{
+		float sum = 0.0f;
+		for (float f : kernel)
+			sum += f;
+		for (float& f : kernel)
+			f /= sum;
+	}
+	*/
+
 	printf("\n%s\n", label);
 
 	// reserve space in the CSV for this data.
@@ -219,9 +333,12 @@ int main(int argc, char** argv)
 	pcg32_srandom_r(&rng, 0xa000b800, 0);
 #endif
 
+	// TODO: could the histogram for box3 red noise (etc) be due to not being a normalized kernel?
+
 	// make noise and add to csv
 	CSV csv, CDFcsv;
 	KernelTest("Box3RedNoise", rng, csv, CDFcsv, { 1.0f, 1.0f, 1.0f });
+	KernelTest("Box3RedNoise2", rng, csv, CDFcsv, { 1.0f / 3.0f, 1.0f / 3.0f, 1.0f / 3.0f });
 	KernelTest("Box3BlueNoise", rng, csv, CDFcsv, { -1.0f, 1.0f, -1.0f });
 
 	KernelTest("Box5RedNoise", rng, csv, CDFcsv, { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f });
@@ -231,7 +348,8 @@ int main(int argc, char** argv)
 
 	KernelTest("Gauss10BlueNoise", rng, csv, CDFcsv, { 0.0002f, -0.0060f, 0.0606f, -0.2417f, 0.3829f, -0.2417f, 0.0606f, -0.0060f, 0.0002f });
 
-	// TODO: more types of noise. use FIR calculator?
+	IIRTest("FIRHPF", rng, csv, CDFcsv, { 0.5f, -1.0f, 0.5f }, {});
+	IIRTest("IIRHPF", rng, csv, CDFcsv, { 0.5f, -1.0f, 0.5f }, { 0.9f });
 
 	printf("\nWriting CSVs...\n");
 	WriteCSV(csv, "out.csv");
@@ -243,7 +361,18 @@ int main(int argc, char** argv)
 /*
 TODO:
 
+FIR: 0.5, -2, 1
+http://demofox.org/DSPFIR/FIR.html
+y = 0.500 * x(n) - 1.000 * x(n-1) + 0.500 * x(n-2)
+
+
+IIR: 0.5, -2, 1, -0.9, 0
+http://demofox.org/DSPIIR/IIR.html
+y = 0.500 * x(n) - 1.000 * x(n-1) + 0.500 * x(n-2) + 0.900 * y(n-1)
+
+
 * your CDF has both 0.0 and 1.0 in it. is that correct?
+ * i dont understand why the polynomial fit CDF has spikes in the histogram.
 
 * maybe see how low of a LUT size you can get away with?
  * down to 64 entries wasn't bad.
