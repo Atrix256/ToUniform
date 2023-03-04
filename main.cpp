@@ -290,7 +290,7 @@ void VoidAndClusterTest(pcg32_random_t& rng, CSV& csv, CSV& CDFcsv)
 
 	// convert to float
 	csv[csvcolumnIndex].values.resize(c_numberCount);
-	for (size_t index = 0; index < length; ++index)
+	for (size_t index = 0; index < c_numberCount; ++index)
 		csv[csvcolumnIndex].values[index] = float(blueNoise[index % length]) / float(length - 1);
 
 	// Do the rest of the testing
@@ -407,13 +407,12 @@ int main(int argc, char** argv)
 /*
 TODO:
 
-? can we compare vs blue noise samples made through some other means? like MBC perhaps? lots of MBC to generate though.
-
 * try c1 continuity? to help the spikes?
 * maybe need c1 continuity too?
  * this basically could become a quadratic lut
 
- * the lut should have the steps centered on the graph, not be on one side of it (add a half or something)
+* the lut should have the steps centered on the graph, not be on one side of it (add a half or something)
+ * the uniform distribution has this, but not the other code path. it should!
 
 * maybe see how low of a LUT size you can get away with?
  * down to 64 entries wasn't bad.

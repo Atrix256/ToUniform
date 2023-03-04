@@ -20,7 +20,7 @@ if doHistograms:
     diagramCols = min(int(math.sqrt(columnCount)), 4)
     diagramRows = math.ceil(columnCount / diagramCols)
 
-    fig, ax = plt.subplots(diagramRows, diagramCols, figsize=(15, 10), squeeze=False)
+    fig, ax = plt.subplots(diagramRows, diagramCols, figsize=(15, 20), squeeze=False)
 
     fig.suptitle('Histograms', fontsize=16)
 
