@@ -132,7 +132,7 @@ void FindBestPolynomialFit(const std::vector<float>& CDF, CSV& csv, CSV& CDFcsv,
 	printf("%s", bestFormula.c_str());
 }
 
-void SequenceTest(CSV& csv, CSV& CDFcsv, int csvcolumnIndex, const char* label)
+void SequenceTest(CSV& csv, CSV& CDFcsv, int csvcolumnIndex, const char* label, bool isUniform = false)
 {
 	// Normalize it to [0,1] and put it into the csv
 	float themin = csv[csvcolumnIndex].values[0];
@@ -160,34 +160,46 @@ void SequenceTest(CSV& csv, CSV& CDFcsv, int csvcolumnIndex, const char* label)
 		}
 	}
 
-	// Make Full CDF
 	std::vector<float> CDFFull(c_histogramBucketCountFull);
-	{
-		std::vector<float> PDF(c_histogramBucketCountFull);
-		float lastCDFValue = 0.0f;
-		for (int index = 0; index < c_histogramBucketCountFull; ++index)
-		{
-			PDF[index] = float(countsFull[index]) / float(c_numberCount);
-			CDFFull[index] = lastCDFValue + PDF[index];
-			lastCDFValue = CDFFull[index];
-		}
-		CDFFull.insert(CDFFull.begin(), 0.0f);
-		CDFFull[CDFFull.size() - 1] = 1.0f;
-	}
-
-	// Make Small CDF
 	std::vector<float> CDFSmall(c_histogramBucketCountSmall);
+
+	if (isUniform)
 	{
-		std::vector<float> PDF(c_histogramBucketCountSmall);
-		float lastCDFValue = 0.0f;
-		for (int index = 0; index < c_histogramBucketCountSmall; ++index)
+		for (size_t index = 0; index < CDFFull.size(); ++index)
+			CDFFull[index] = (float(index) + 0.5f) / float(CDFFull.size() - 1);
+
+		for (size_t index = 0; index < CDFSmall.size(); ++index)
+			CDFSmall[index] = (float(index) + 0.5f) / float(CDFSmall.size() - 1);
+	}
+	else
+	{
+		// Make Full CDF
 		{
-			PDF[index] = float(countsSmall[index]) / float(c_numberCount);
-			CDFSmall[index] = lastCDFValue + PDF[index];
-			lastCDFValue = CDFSmall[index];
+			std::vector<float> PDF(c_histogramBucketCountFull);
+			float lastCDFValue = 0.0f;
+			for (int index = 0; index < c_histogramBucketCountFull; ++index)
+			{
+				PDF[index] = float(countsFull[index]) / float(c_numberCount);
+				CDFFull[index] = lastCDFValue + PDF[index];
+				lastCDFValue = CDFFull[index];
+			}
+			CDFFull.insert(CDFFull.begin(), 0.0f);
+			CDFFull[CDFFull.size() - 1] = 1.0f;
 		}
-		CDFSmall.insert(CDFSmall.begin(), 0.0f);
-		CDFSmall[CDFSmall.size() - 1] = 1.0f;
+
+		// Make Small CDF
+		{
+			std::vector<float> PDF(c_histogramBucketCountSmall);
+			float lastCDFValue = 0.0f;
+			for (int index = 0; index < c_histogramBucketCountSmall; ++index)
+			{
+				PDF[index] = float(countsSmall[index]) / float(c_numberCount);
+				CDFSmall[index] = lastCDFValue + PDF[index];
+				lastCDFValue = CDFSmall[index];
+			}
+			CDFSmall.insert(CDFSmall.begin(), 0.0f);
+			CDFSmall[CDFSmall.size() - 1] = 1.0f;
+		}
 	}
 
 	// Put the values through the full CDF (inverted, inverted CDF) to make them be a uniform distribution
@@ -246,6 +258,43 @@ void SequenceTest(CSV& csv, CSV& CDFcsv, int csvcolumnIndex, const char* label)
 
 	// Find the best piecewise polynomial fit we can for this CDF, and use that
 	FindBestPolynomialFit(CDFFull, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
+}
+
+void VoidAndClusterTest(pcg32_random_t& rng, CSV& csv, CSV& CDFcsv)
+{
+	const char* label = "VoidAndCluster";
+	printf("\n%s\n", label);
+
+	// reserve space in the CSV for this data.
+	// 0) The noise from disk
+	// 1) To uniform with CDF
+	// 2) To uniform with least squares
+	int csvcolumnIndex = (int)csv.size();
+	csv.resize(csvcolumnIndex + 4);
+	csv[csvcolumnIndex].label = label;
+
+	// read the data from disk
+	FILE* file = nullptr;
+	fopen_s(&file, "bluenoise_100k_u64.bin", "rb");
+	size_t length = 0;
+	fread(&length, sizeof(size_t), 1, file);
+	std::vector<size_t> blueNoise(length);
+	fread(blueNoise.data(), sizeof(size_t), length, file);
+	fclose(file);
+
+	if (length > c_numberCount)
+	{
+		blueNoise.resize(c_numberCount);
+		length = c_numberCount;
+	}
+
+	// convert to float
+	csv[csvcolumnIndex].values.resize(c_numberCount);
+	for (size_t index = 0; index < length; ++index)
+		csv[csvcolumnIndex].values[index] = float(blueNoise[index % length]) / float(length - 1);
+
+	// Do the rest of the testing
+	SequenceTest(csv, CDFcsv, csvcolumnIndex, label, true);
 }
 
 void IIRTest(const char* label, pcg32_random_t& rng, CSV& csv, CSV& CDFcsv, const std::vector<float>& xCoefficients, const std::vector<float>& yCoefficients)
@@ -346,6 +395,8 @@ int main(int argc, char** argv)
 	IIRTest("FIRHPF", rng, csv, CDFcsv, { 0.5f, -1.0f, 0.5f }, {});
 	IIRTest("IIRHPF", rng, csv, CDFcsv, { 0.5f, -1.0f, 0.5f }, { 0.9f });
 
+	VoidAndClusterTest(rng, csv, CDFcsv);
+
 	printf("\nWriting CSVs...\n");
 	WriteCSV(csv, "out.csv");
 	WriteCSV(CDFcsv, "cdf.csv");
@@ -355,6 +406,8 @@ int main(int argc, char** argv)
 
 /*
 TODO:
+
+? can we compare vs blue noise samples made through some other means? like MBC perhaps? lots of MBC to generate though.
 
 * try c1 continuity? to help the spikes?
 * maybe need c1 continuity too?
@@ -370,6 +423,9 @@ TODO:
 ! should have some simple code to make colored uniform noise by the end. need it for the next post!
 
 NOTES:
+
+* blue noise made by void and cluster, using a sigma of 1.0
+ * blue noise "tiles well" so may be fine using a small amount of blue noise values (a few 100?) and re-using them.
 
 FIR: 0.5, -2, 1
 http://demofox.org/DSPFIR/FIR.html
