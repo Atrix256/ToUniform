@@ -29,7 +29,11 @@ public:
 	void CalculateCoefficients()
 	{
 		static const int ATAPieceWidth = ORDER + 1;
-		static const int ATAMatrixConstraints = PIECES - 1;
+
+		// a point constraint between each piece
+		// also a point constraint for f(0) = 0 and f(1) = 1
+		static const int ATAMatrixConstraints = PIECES - 1 + 2;
+
 		static const int ATAMatrixHeightNoConstraints = ATAPieceWidth * PIECES;
 		static const int ATAMatrixHeight = ATAMatrixHeightNoConstraints + ATAMatrixConstraints;
 		static const int ATAMtrixAugmentedWidth = ATAMatrixHeight + 1;
@@ -46,8 +50,8 @@ public:
 				ATA[iy][ix + pieceIndex * ATAPieceWidth] = m_ATA[pieceIndex][ix + iy % ATAPieceWidth];
 		}
 
-		// fill out the C0 constraints
-		for (int constraint = 0; constraint < ATAMatrixConstraints; ++constraint)
+		// fill out the C0 constraints between pieces
+		for (int constraint = 0; constraint < PIECES - 1; ++constraint)
 		{
 			int pieceIndex1 = constraint;
 			int pieceIndex2 = constraint + 1;
@@ -66,6 +70,31 @@ public:
 				// C^T
 				ATA[pieceIndex1 * (ORDER + 1) + index][ATAPieceWidth * PIECES + constraint] = xpow;
 				ATA[pieceIndex2 * (ORDER + 1) + index][ATAPieceWidth * PIECES + constraint] = -xpow;
+
+				xpow *= x;
+			}
+		}
+
+		// make constraints for f(0) = 0 and f(1) = 1
+		for (int constraint = PIECES - 1; constraint < ATAMatrixConstraints; ++constraint)
+		{
+			int row = ATAMatrixHeightNoConstraints + constraint;
+
+			float x = (constraint == PIECES - 1) ? 0.0f : 1.0f;
+			float z = x;
+			int pieceIndex = (constraint == PIECES - 1) ? 0 : PIECES - 1;
+
+			// Z
+			ATA[row][ATAMtrixAugmentedWidth - 1] = z;
+
+			double xpow = 1.0;
+			for (int index = 0; index < ORDER + 1; ++index)
+			{
+				// C
+				ATA[row][pieceIndex * (ORDER + 1) + index] = xpow;
+
+				// C^T
+				ATA[pieceIndex * (ORDER + 1) + index][ATAPieceWidth * PIECES + constraint] = xpow;
 
 				xpow *= x;
 			}

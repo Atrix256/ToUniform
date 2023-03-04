@@ -301,22 +301,16 @@ int main(int argc, char** argv)
 /*
 TODO:
 
-! histogram from table is messed up somehow, need to fix it. check it out with 2 histogram buckets, it gets obvious.
-* also, the histogram from the fit is making numbers less than 0 and not quite reaching 1? looks like it is off by 0.1
- * actually, the line fit has this! maybe need to add constraints that f(0) = 0 and f(1) = 1?
-
-
-* your CDF has both 0.0 and 1.0 in it. is that correct?
- * i dont understand why the polynomial fit CDF has spikes in the histogram.
-
-* maybe see how low of a LUT size you can get away with?
- * down to 64 entries wasn't bad.
- * probably would be better if the lut was non linear but that'd be hard to look up
-
+* try c1 continuity? to help the spikes?
 * maybe need c1 continuity too? could also maybe have 0 derivatives on the sides?
  * this basically could become a quadratic lut
 
-* could try IIR too!
+
+! histogram from table is messed up somehow, need to fix it. check it out with 2 histogram buckets, it gets obvious.
+
+* maybe see how low of a LUT size you can get away with?
+ * down to 64 entries wasn't bad.
+ * probably would be better if the lut was non linear spaced points but that'd be hard to look up
 
 ! should have some simple code to make colored uniform noise by the end. need it for the next post!
 
