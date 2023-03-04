@@ -27,7 +27,7 @@ void FindBestPolynomialFit_Order_Pieces(const std::vector<float>& CDF, float& lo
 	LeastSquaresPolynomialFit<ORDER, PIECES> fit;
 	for (size_t i = 0; i < CDF.size(); ++i)
 	{
-		float x = float(i) / float(CDF.size());
+		float x = float(i) / float(CDF.size() - 1.0f);
 		float y = CDF[i];
 		fit.AddPoint(x, y);
 	}
@@ -205,16 +205,17 @@ void IIRTest(const char* label, pcg32_random_t& rng, CSV& csv, CSV& CDFcsv, cons
 		lastCDFValue = CDF[index];
 	}
 	CDF.insert(CDF.begin(), 0.0f);
-	CDF.push_back(1.0f);
+	CDF[CDF.size() - 1] = 1.0f;
 
 	// Put the values through the CDF (inverted, inverted CDF) to make them be a uniform distribution
 	csv[csvcolumnIndex + 1].values.resize(c_numberCount);
 	for (size_t index = 0; index < c_numberCount; ++index)
 	{
 		float x = csv[csvcolumnIndex].values[index];
-		float xindexf = std::min(x * float(c_histogramBucketCount), (float)(c_histogramBucketCount - 1));
+
+		float xindexf = std::min(x * float(CDF.size()), (float)(CDF.size() - 1));
 		int xindex1 = int(xindexf);
-		int xindex2 = std::min(xindex1 + 1, (int)c_histogramBucketCount - 1);
+		int xindex2 = std::min(xindex1 + 1, (int)CDF.size() - 1);
 		float xindexfract = xindexf - std::floor(xindexf);
 
 		float y1 = CDF[xindex1];
@@ -295,22 +296,25 @@ void KernelTest(const char* label, pcg32_random_t& rng, CSV& csv, CSV& CDFcsv, c
 		lastCDFValue = CDF[index];
 	}
 	CDF.insert(CDF.begin(), 0.0f);
-	CDF.push_back(1.0f);
+	CDF[CDF.size() - 1] = 1.0f;
 
 	// Put the values through the CDF (inverted, inverted CDF) to make them be a uniform distribution
 	csv[csvcolumnIndex + 1].values.resize(c_numberCount);
 	for (size_t index = 0; index < c_numberCount; ++index)
 	{
 		float x = csv[csvcolumnIndex].values[index];
-		float xindexf = std::min(x * float(c_histogramBucketCount), (float)(c_histogramBucketCount - 1));
+
+		float xindexf = std::min(x * float(CDF.size()), (float)(CDF.size() - 1));
 		int xindex1 = int(xindexf);
-		int xindex2 = std::min(xindex1 + 1, (int)c_histogramBucketCount - 1);
+		int xindex2 = std::min(xindex1 + 1, (int)CDF.size() - 1);
 		float xindexfract = xindexf - std::floor(xindexf);
 
 		float y1 = CDF[xindex1];
 		float y2 = CDF[xindex2];
 
 		csv[csvcolumnIndex + 1].values[index] = Lerp(y1, y2, xindexfract);
+
+		int ijkl = 0;
 	}
 
 	// Put the CDF into the CDF csv
@@ -360,6 +364,14 @@ int main(int argc, char** argv)
 
 /*
 TODO:
+
+! histogram from table is messed up somehow, need to fix it. check it out with 2 histogram buckets, it gets obvious.
+
+* share more code between kernel test and IIR test, so there are fewer bugs
+
+* i think the polynomial fit to CDF is incorrect. with 2 buckets, it's going from 0 to 1.5, not 1.0!
+
+* rename kernel test to FIR test?
 
 FIR: 0.5, -2, 1
 http://demofox.org/DSPFIR/FIR.html
