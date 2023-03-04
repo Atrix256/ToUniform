@@ -13,7 +13,8 @@
 static const size_t c_numberCount = 10000000;
 
 // Bucket count of histogram that makes the PDF and CDF
-static const size_t c_histogramBucketCount = 1024;
+static const size_t c_histogramBucketCountFull = 1024;
+static const size_t c_histogramBucketCountSmall = 64;
 
 float PCGRandomFloat01(pcg32_random_t& rng)
 {
@@ -89,23 +90,23 @@ void FindBestPolynomialFit_Order_Pieces(const std::vector<float>& CDF, float& lo
 	// Set the label
 	char buffer[1024];
 	sprintf_s(buffer, "%s_ToUniformFit_O%i_C%i", label, (int)ORDER, (int)PIECES);
-	csv[csvcolumnIndex + 2].label = buffer;
+	csv[csvcolumnIndex + 3].label = buffer;
 
 	// Put the values through the polynomial fit CDF (inverted, inverted CDF) to make them be a uniform distribution
-	csv[csvcolumnIndex + 2].values.resize(c_numberCount);
+	csv[csvcolumnIndex + 3].values.resize(c_numberCount);
 	for (size_t index = 0; index < c_numberCount; ++index)
 	{
 		float x = csv[csvcolumnIndex].values[index];
-		csv[csvcolumnIndex + 2].values[index] = fit.Evaluate(x);
+		csv[csvcolumnIndex + 3].values[index] = fit.Evaluate(x);
 	}
 
 	// Put the fit CDF into the CDF csv
-	CDFcsv[cdfcsvcolumnIndex + 1].label = buffer;
-	CDFcsv[cdfcsvcolumnIndex + 1].values.resize(CDF.size());
+	CDFcsv[cdfcsvcolumnIndex + 2].label = buffer;
+	CDFcsv[cdfcsvcolumnIndex + 2].values.resize(CDF.size());
 	for (size_t i = 0; i < CDF.size(); ++i)
 	{
 		float x = float(i) / float(CDF.size() - 1);
-		CDFcsv[cdfcsvcolumnIndex + 1].values[i] = fit.Evaluate(x);
+		CDFcsv[cdfcsvcolumnIndex + 2].values[i] = fit.Evaluate(x);
 	}
 }
 
@@ -145,52 +146,106 @@ void SequenceTest(CSV& csv, CSV& CDFcsv, int csvcolumnIndex, const char* label)
 		f = (f - themin) / (themax - themin);
 
 	// Make a histogram
-	std::vector<int> counts(c_histogramBucketCount, 0);
+	std::vector<int> countsFull(c_histogramBucketCountFull, 0);
+	std::vector<int> countsSmall(c_histogramBucketCountSmall, 0);
 	for (float f : csv[csvcolumnIndex].values)
 	{
-		int bucket = std::min(int(f * float(c_histogramBucketCount)), (int)c_histogramBucketCount - 1);
-		counts[bucket]++;
+		{
+			int bucket = std::min(int(f * float(c_histogramBucketCountFull)), (int)c_histogramBucketCountFull - 1);
+			countsFull[bucket]++;
+		}
+		{
+			int bucket = std::min(int(f * float(c_histogramBucketCountSmall)), (int)c_histogramBucketCountSmall - 1);
+			countsSmall[bucket]++;
+		}
 	}
 
-	// Make a PDF and a CDF
-	std::vector<float> PDF(c_histogramBucketCount);
-	std::vector<float> CDF(c_histogramBucketCount);
-	float lastCDFValue = 0.0f;
-	for (int index = 0; index < c_histogramBucketCount; ++index)
+	// Make Full CDF
+	std::vector<float> CDFFull(c_histogramBucketCountFull);
 	{
-		PDF[index] = float(counts[index]) / float(c_numberCount);
-		CDF[index] = lastCDFValue + PDF[index];
-		lastCDFValue = CDF[index];
+		std::vector<float> PDF(c_histogramBucketCountFull);
+		float lastCDFValue = 0.0f;
+		for (int index = 0; index < c_histogramBucketCountFull; ++index)
+		{
+			PDF[index] = float(countsFull[index]) / float(c_numberCount);
+			CDFFull[index] = lastCDFValue + PDF[index];
+			lastCDFValue = CDFFull[index];
+		}
+		CDFFull.insert(CDFFull.begin(), 0.0f);
+		CDFFull[CDFFull.size() - 1] = 1.0f;
 	}
-	CDF.insert(CDF.begin(), 0.0f);
-	CDF[CDF.size() - 1] = 1.0f;
 
-	// Put the values through the CDF (inverted, inverted CDF) to make them be a uniform distribution
-	csv[csvcolumnIndex + 1].label = std::string(label) + "_ToUniform";
+	// Make Small CDF
+	std::vector<float> CDFSmall(c_histogramBucketCountSmall);
+	{
+		std::vector<float> PDF(c_histogramBucketCountSmall);
+		float lastCDFValue = 0.0f;
+		for (int index = 0; index < c_histogramBucketCountSmall; ++index)
+		{
+			PDF[index] = float(countsSmall[index]) / float(c_numberCount);
+			CDFSmall[index] = lastCDFValue + PDF[index];
+			lastCDFValue = CDFSmall[index];
+		}
+		CDFSmall.insert(CDFSmall.begin(), 0.0f);
+		CDFSmall[CDFSmall.size() - 1] = 1.0f;
+	}
+
+	// Put the values through the full CDF (inverted, inverted CDF) to make them be a uniform distribution
+	csv[csvcolumnIndex + 1].label = std::string(label) + "_ToUniform1024";
 	csv[csvcolumnIndex + 1].values.resize(c_numberCount);
 	for (size_t index = 0; index < c_numberCount; ++index)
 	{
 		float x = csv[csvcolumnIndex].values[index];
 
-		float xindexf = std::min(x * float(CDF.size() - 1), (float)(CDF.size() - 1));
+		float xindexf = std::min(x * float(CDFFull.size() - 1), (float)(CDFFull.size() - 1));
 		int xindex1 = int(xindexf);
-		int xindex2 = std::min(xindex1 + 1, (int)CDF.size() - 1);
+		int xindex2 = std::min(xindex1 + 1, (int)CDFFull.size() - 1);
 		float xindexfract = xindexf - std::floor(xindexf);
 
-		float y1 = CDF[xindex1];
-		float y2 = CDF[xindex2];
+		float y1 = CDFFull[xindex1];
+		float y2 = CDFFull[xindex2];
 
 		csv[csvcolumnIndex + 1].values[index] = Lerp(y1, y2, xindexfract);
 	}
 
+	// Put the values through the small CDF (inverted, inverted CDF) to make them be a uniform distribution
+	csv[csvcolumnIndex + 2].label = std::string(label) + "_ToUniform64";
+	csv[csvcolumnIndex + 2].values.resize(c_numberCount);
+	for (size_t index = 0; index < c_numberCount; ++index)
+	{
+		float x = csv[csvcolumnIndex].values[index];
+
+		float xindexf = std::min(x * float(CDFSmall.size() - 1), (float)(CDFSmall.size() - 1));
+		int xindex1 = int(xindexf);
+		int xindex2 = std::min(xindex1 + 1, (int)CDFSmall.size() - 1);
+		float xindexfract = xindexf - std::floor(xindexf);
+
+		float y1 = CDFSmall[xindex1];
+		float y2 = CDFSmall[xindex2];
+
+		csv[csvcolumnIndex + 2].values[index] = Lerp(y1, y2, xindexfract);
+	}
+
 	// Put the CDF into the CDF csv
 	int cdfcsvcolumnIndex = (int)CDFcsv.size();
-	CDFcsv.resize(cdfcsvcolumnIndex + 2);
+	CDFcsv.resize(cdfcsvcolumnIndex + 3);
 	CDFcsv[cdfcsvcolumnIndex].label = std::string(label) + " CDF";
-	CDFcsv[cdfcsvcolumnIndex].values = CDF;
+	CDFcsv[cdfcsvcolumnIndex].values = CDFFull;
+
+	// expand the small cdf so that it looks right in the graphs
+	{
+		CDFcsv[cdfcsvcolumnIndex + 1].label = std::string(label) + " CDFSmall";
+		CDFcsv[cdfcsvcolumnIndex + 1].values.resize(CDFFull.size());
+		for (size_t index = 0; index < CDFFull.size(); ++index)
+		{
+			float x = (float(index) + 0.5f) / float(CDFFull.size() - 1);
+			int srcIndex = std::min(int(x * float(CDFSmall.size() - 1)), (int)CDFSmall.size() - 1);
+			CDFcsv[cdfcsvcolumnIndex + 1].values[index] = CDFSmall[srcIndex];
+		}
+	}
 
 	// Find the best piecewise polynomial fit we can for this CDF, and use that
-	FindBestPolynomialFit(CDF, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
+	FindBestPolynomialFit(CDFFull, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
 }
 
 void IIRTest(const char* label, pcg32_random_t& rng, CSV& csv, CSV& CDFcsv, const std::vector<float>& xCoefficients, const std::vector<float>& yCoefficients)
@@ -202,7 +257,7 @@ void IIRTest(const char* label, pcg32_random_t& rng, CSV& csv, CSV& CDFcsv, cons
 	// 1) To uniform with CDF
 	// 2) To uniform with least squares
 	int csvcolumnIndex = (int)csv.size();
-	csv.resize(csvcolumnIndex + 3);
+	csv.resize(csvcolumnIndex + 4);
 	csv[csvcolumnIndex].label = label;
 
 	// make white noise
@@ -249,7 +304,7 @@ void FIRTest(const char* label, pcg32_random_t& rng, CSV& csv, CSV& CDFcsv, cons
 	// 1) To uniform with CDF
 	// 2) To uniform with least squares
 	int csvcolumnIndex = (int)csv.size();
-	csv.resize(csvcolumnIndex + 3);
+	csv.resize(csvcolumnIndex + 4);
 	csv[csvcolumnIndex].label = label;
 
 	// make white noise
@@ -302,8 +357,10 @@ int main(int argc, char** argv)
 TODO:
 
 * try c1 continuity? to help the spikes?
-* maybe need c1 continuity too? could also maybe have 0 derivatives on the sides?
+* maybe need c1 continuity too?
  * this basically could become a quadratic lut
+
+ * the lut should have the steps centered on the graph, not be on one side of it (add a half or something)
 
 * maybe see how low of a LUT size you can get away with?
  * down to 64 entries wasn't bad.

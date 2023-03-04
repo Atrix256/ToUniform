@@ -37,7 +37,7 @@ if doHistograms:
 if doDFTs:
     print("DFT")
 
-    graphsPerCell = 3
+    graphsPerCell = 4
 
     columns = df.columns.values.tolist()
     columnCount = len(columns)
@@ -57,7 +57,7 @@ if doDFTs:
 
         ax[i%diagramRows, math.floor(i/diagramRows)].set_title(columns[i*graphsPerCell])
 
-        lineStyles = ['-',':',':']
+        lineStyles = ['-',':',':', ':']
 
         for j in range(graphsPerCell):
             data = df[columns[i*graphsPerCell + j]].to_numpy()
@@ -105,7 +105,7 @@ if doCDFs:
 
     df = pd.read_csv('cdf.csv')
 
-    graphsPerCell = 2
+    graphsPerCell = 3
 
     columns = df.columns.values.tolist()
     columnCount = len(columns)
@@ -143,6 +143,7 @@ if doCDFs:
         for j in range(1, graphsPerCell):
             line, = ax[i%diagramRows, math.floor(i/diagramRows)].plot(df[columns[i*graphsPerCell + j]] - df[columns[i*graphsPerCell + 0]])
             line.set_label(columns[i*graphsPerCell+j])
+        ax[i%diagramRows, math.floor(i/diagramRows)].legend()
 
     plt.tight_layout()
     fig.savefig("_cdferror.png", bbox_inches='tight')
