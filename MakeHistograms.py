@@ -20,7 +20,7 @@ if doHistograms:
     diagramCols = min(int(math.sqrt(columnCount)), 4)
     diagramRows = math.ceil(columnCount / diagramCols)
 
-    fig, ax = plt.subplots(diagramRows, diagramCols, figsize=(15, 10))
+    fig, ax = plt.subplots(diagramRows, diagramCols, figsize=(15, 10), squeeze=False)
 
     fig.suptitle('Histograms', fontsize=16)
 
@@ -46,7 +46,7 @@ if doDFTs:
     diagramCols = min(int(math.sqrt(graphCount)), 4)
     diagramRows = math.ceil(graphCount / diagramCols)    
 
-    fig, ax = plt.subplots(diagramRows, diagramCols, figsize=(15, 10))
+    fig, ax = plt.subplots(diagramRows, diagramCols, figsize=(15, 10), squeeze=False)
 
     fig.suptitle('DFTs', fontsize=16)
 
@@ -114,7 +114,7 @@ if doCDFs:
     diagramCols = min(int(math.sqrt(graphCount)), 4)
     diagramRows = math.ceil(graphCount / diagramCols)
 
-    fig, ax = plt.subplots(diagramRows, diagramCols, figsize=(15, 10))
+    fig, ax = plt.subplots(diagramRows, diagramCols, figsize=(15, 10), squeeze=False)
 
     fig.suptitle('CDFs', fontsize=16)
 
@@ -133,7 +133,7 @@ if doCDFs:
     # Do the CDF error graphs
     print("CDF Errors")
 
-    fig, ax = plt.subplots(diagramRows, diagramCols, figsize=(15, 10))
+    fig, ax = plt.subplots(diagramRows, diagramCols, figsize=(15, 10), squeeze=False)
 
     fig.suptitle('CDF Errors', fontsize=16)
 
