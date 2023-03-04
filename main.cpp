@@ -305,12 +305,10 @@ TODO:
 * maybe need c1 continuity too? could also maybe have 0 derivatives on the sides?
  * this basically could become a quadratic lut
 
-
-! histogram from table is messed up somehow, need to fix it. check it out with 2 histogram buckets, it gets obvious.
-
 * maybe see how low of a LUT size you can get away with?
  * down to 64 entries wasn't bad.
  * probably would be better if the lut was non linear spaced points but that'd be hard to look up
+ ! for CDF graph, have a "high resolution LUT" version, and then a smaller bucket count verison too
 
 ! should have some simple code to make colored uniform noise by the end. need it for the next post!
 
