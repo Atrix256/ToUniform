@@ -166,12 +166,13 @@ void SequenceTest(CSV& csv, CSV& CDFcsv, int csvcolumnIndex, const char* label)
 	CDF[CDF.size() - 1] = 1.0f;
 
 	// Put the values through the CDF (inverted, inverted CDF) to make them be a uniform distribution
+	csv[csvcolumnIndex + 1].label = std::string(label) + "_ToUniform";
 	csv[csvcolumnIndex + 1].values.resize(c_numberCount);
 	for (size_t index = 0; index < c_numberCount; ++index)
 	{
 		float x = csv[csvcolumnIndex].values[index];
 
-		float xindexf = std::min(x * float(CDF.size()), (float)(CDF.size() - 1));
+		float xindexf = std::min(x * float(CDF.size() - 1), (float)(CDF.size() - 1));
 		int xindex1 = int(xindexf);
 		int xindex2 = std::min(xindex1 + 1, (int)CDF.size() - 1);
 		float xindexfract = xindexf - std::floor(xindexf);
@@ -203,7 +204,6 @@ void IIRTest(const char* label, pcg32_random_t& rng, CSV& csv, CSV& CDFcsv, cons
 	int csvcolumnIndex = (int)csv.size();
 	csv.resize(csvcolumnIndex + 3);
 	csv[csvcolumnIndex].label = label;
-	csv[csvcolumnIndex + 1].label = std::string(label) + "_ToUniform";
 
 	// make white noise
 	std::vector<float> whiteNoise(c_numberCount);
@@ -251,7 +251,6 @@ void FIRTest(const char* label, pcg32_random_t& rng, CSV& csv, CSV& CDFcsv, cons
 	int csvcolumnIndex = (int)csv.size();
 	csv.resize(csvcolumnIndex + 3);
 	csv[csvcolumnIndex].label = label;
-	csv[csvcolumnIndex + 1].label = std::string(label) + "_ToUniform";
 
 	// make white noise
 	std::vector<float> whiteNoise(c_numberCount);
@@ -302,11 +301,9 @@ int main(int argc, char** argv)
 /*
 TODO:
 
-? maybe we don't need FIR and IIR test, but can just do IIR test and get rid of convolve?
-
 ! histogram from table is messed up somehow, need to fix it. check it out with 2 histogram buckets, it gets obvious.
-
-
+* also, the histogram from the fit is making numbers less than 0 and not quite reaching 1? looks like it is off by 0.1
+ * actually, the line fit has this! maybe need to add constraints that f(0) = 0 and f(1) = 1?
 
 
 * your CDF has both 0.0 and 1.0 in it. is that correct?

@@ -143,7 +143,6 @@ if doCDFs:
         for j in range(1, graphsPerCell):
             line, = ax[i%diagramRows, math.floor(i/diagramRows)].plot(df[columns[i*graphsPerCell + j]] - df[columns[i*graphsPerCell + 0]])
             line.set_label(columns[i*graphsPerCell+j])
-        ax[i%diagramRows, math.floor(i/diagramRows)].legend()
 
     plt.tight_layout()
     fig.savefig("_cdferror.png", bbox_inches='tight')
