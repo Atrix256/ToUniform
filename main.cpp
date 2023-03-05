@@ -409,6 +409,9 @@ int main(int argc, char** argv)
 	WriteCSV(csv, "out.csv");
 	WriteCSV(CDFcsv, "cdf.csv");
 
+	printf("\nRunning MakeHistograms.py\n");
+	system("python MakeHistograms.py");
+
 	return 0;
 }
 

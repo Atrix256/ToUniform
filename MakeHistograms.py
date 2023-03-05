@@ -105,6 +105,8 @@ if doCDFs:
 
     df = pd.read_csv('cdf.csv')
 
+    lineStyles = [':','-','-']
+
     graphsPerCell = 3
 
     columns = df.columns.values.tolist()
@@ -122,7 +124,7 @@ if doCDFs:
         print("  " + columns[i*graphsPerCell])
         ax[i%diagramRows, math.floor(i/diagramRows)].set_title(columns[i*graphsPerCell])
         for j in reversed(range(graphsPerCell)):
-            line, = ax[i%diagramRows, math.floor(i/diagramRows)].plot(df[columns[i*graphsPerCell + j]])
+            line, = ax[i%diagramRows, math.floor(i/diagramRows)].plot(df[columns[i*graphsPerCell + j]], lineStyles[j])
             line.set_label(columns[i*graphsPerCell+j])
         ax[i%diagramRows, math.floor(i/diagramRows)].legend()
 
