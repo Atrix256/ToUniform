@@ -132,7 +132,7 @@ void FindBestPolynomialFit(const std::vector<float>& CDF, CSV& csv, CSV& CDFcsv,
 	printf("%s", bestFormula.c_str());
 }
 
-void SequenceTest(CSV& csv, CSV& CDFcsv, int csvcolumnIndex, const char* label, bool isUniform = false)
+void SequenceTest(CSV& csv, CSV& CDFcsv, int csvcolumnIndex, const char* label)
 {
 	// Normalize it to [0,1] and put it into the csv
 	float themin = csv[csvcolumnIndex].values[0];
@@ -163,43 +163,40 @@ void SequenceTest(CSV& csv, CSV& CDFcsv, int csvcolumnIndex, const char* label, 
 	std::vector<float> CDFFull(c_histogramBucketCountFull);
 	std::vector<float> CDFSmall(c_histogramBucketCountSmall);
 
-	if (isUniform)
+	// Make Full CDF
 	{
-		for (size_t index = 0; index < CDFFull.size(); ++index)
-			CDFFull[index] = (float(index) + 0.5f) / float(CDFFull.size() - 1);
+		std::vector<float> PDF(c_histogramBucketCountFull);
+		float lastCDFValue = 0.0f;
+		for (int index = 0; index < c_histogramBucketCountFull; ++index)
+		{
+			PDF[index] = float(countsFull[index]) / float(c_numberCount);
+			CDFFull[index] = lastCDFValue + PDF[index];
+			lastCDFValue = CDFFull[index];
+		}
+		CDFFull.insert(CDFFull.begin(), 0.0f);
+		CDFFull[CDFFull.size() - 1] = 1.0f;
 
-		for (size_t index = 0; index < CDFSmall.size(); ++index)
-			CDFSmall[index] = (float(index) + 0.5f) / float(CDFSmall.size() - 1);
+		// Make the error be split evenly on the positive and negative side
+		for (size_t index = 1; index < CDFFull.size() - 1; ++index)
+			CDFFull[index] = (CDFFull[index] + CDFFull[index + 1]) / 2.0f;
 	}
-	else
-	{
-		// Make Full CDF
-		{
-			std::vector<float> PDF(c_histogramBucketCountFull);
-			float lastCDFValue = 0.0f;
-			for (int index = 0; index < c_histogramBucketCountFull; ++index)
-			{
-				PDF[index] = float(countsFull[index]) / float(c_numberCount);
-				CDFFull[index] = lastCDFValue + PDF[index];
-				lastCDFValue = CDFFull[index];
-			}
-			CDFFull.insert(CDFFull.begin(), 0.0f);
-			CDFFull[CDFFull.size() - 1] = 1.0f;
-		}
 
-		// Make Small CDF
+	// Make Small CDF
+	{
+		std::vector<float> PDF(c_histogramBucketCountSmall);
+		float lastCDFValue = 0.0f;
+		for (int index = 0; index < c_histogramBucketCountSmall; ++index)
 		{
-			std::vector<float> PDF(c_histogramBucketCountSmall);
-			float lastCDFValue = 0.0f;
-			for (int index = 0; index < c_histogramBucketCountSmall; ++index)
-			{
-				PDF[index] = float(countsSmall[index]) / float(c_numberCount);
-				CDFSmall[index] = lastCDFValue + PDF[index];
-				lastCDFValue = CDFSmall[index];
-			}
-			CDFSmall.insert(CDFSmall.begin(), 0.0f);
-			CDFSmall[CDFSmall.size() - 1] = 1.0f;
+			PDF[index] = float(countsSmall[index]) / float(c_numberCount);
+			CDFSmall[index] = lastCDFValue + PDF[index];
+			lastCDFValue = CDFSmall[index];
 		}
+		CDFSmall.insert(CDFSmall.begin(), 0.0f);
+		CDFSmall[CDFSmall.size() - 1] = 1.0f;
+
+		// Make the error be split evenly on the positive and negative side
+		for (size_t index = 1; index < CDFSmall.size() - 1; ++index)
+			CDFSmall[index] = (CDFSmall[index] + CDFSmall[index + 1]) / 2.0f;
 	}
 
 	// Put the values through the full CDF (inverted, inverted CDF) to make them be a uniform distribution
@@ -209,7 +206,7 @@ void SequenceTest(CSV& csv, CSV& CDFcsv, int csvcolumnIndex, const char* label, 
 	{
 		float x = csv[csvcolumnIndex].values[index];
 
-		float xindexf = std::min(x * float(CDFFull.size() - 1), (float)(CDFFull.size() - 1));
+		float xindexf = std::min(x * float(CDFFull.size() - 1) - 0.5f, (float)(CDFFull.size() - 1));
 		int xindex1 = int(xindexf);
 		int xindex2 = std::min(xindex1 + 1, (int)CDFFull.size() - 1);
 		float xindexfract = xindexf - std::floor(xindexf);
@@ -227,7 +224,7 @@ void SequenceTest(CSV& csv, CSV& CDFcsv, int csvcolumnIndex, const char* label, 
 	{
 		float x = csv[csvcolumnIndex].values[index];
 
-		float xindexf = std::min(x * float(CDFSmall.size() - 1), (float)(CDFSmall.size() - 1));
+		float xindexf = std::min(x * float(CDFSmall.size() - 1) - 0.5f, (float)(CDFSmall.size() - 1));
 		int xindex1 = int(xindexf);
 		int xindex2 = std::min(xindex1 + 1, (int)CDFSmall.size() - 1);
 		float xindexfract = xindexf - std::floor(xindexf);
@@ -302,7 +299,7 @@ void VoidAndClusterTest(pcg32_random_t& rng, CSV& csv, CSV& CDFcsv)
 		csv[csvcolumnIndex].values[index] = float(blueNoise[index % length]) / float(length - 1);
 
 	// Do the rest of the testing
-	SequenceTest(csv, CDFcsv, csvcolumnIndex, label, true);
+	SequenceTest(csv, CDFcsv, csvcolumnIndex, label);
 }
 
 void IIRTest(const char* label, pcg32_random_t& rng, CSV& csv, CSV& CDFcsv, const std::vector<float>& xCoefficients, const std::vector<float>& yCoefficients)
@@ -417,9 +414,6 @@ int main(int argc, char** argv)
 
 /*
 TODO:
-
-* the lut should have the steps centered on the graph, not be on one side of it (add a half or something)
- * the uniform distribution has this, but not the other code path. it should!
 
 ! should have some simple code to make colored uniform noise by the end. need it for the next post!
 
