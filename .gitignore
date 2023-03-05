@@ -3,3 +3,4 @@
 *.csv
 .vs
 x64
+out.txt

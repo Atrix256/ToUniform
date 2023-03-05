@@ -120,7 +120,7 @@ void FindBestPolynomialFit_Order(const std::vector<float>& CDF, float& lowestRMS
 	//FindBestPolynomialFit_Order_Pieces<ORDER, 5>(CDF, lowestRMSE, bestFormula, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
 }
 
-void FindBestPolynomialFit(const std::vector<float>& CDF, CSV& csv, CSV& CDFcsv, int csvcolumnIndex, int cdfcsvcolumnIndex, const char* label)
+std::string FindBestPolynomialFit(const std::vector<float>& CDF, CSV& csv, CSV& CDFcsv, int csvcolumnIndex, int cdfcsvcolumnIndex, const char* label)
 {
 	float lowestRMSE = FLT_MAX;
 	std::string bestFormula;
@@ -130,6 +130,7 @@ void FindBestPolynomialFit(const std::vector<float>& CDF, CSV& csv, CSV& CDFcsv,
 	//FindBestPolynomialFit_Order<4>(CDF, lowestRMSE, bestFormula, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
 	//FindBestPolynomialFit_Order<5>(CDF, lowestRMSE, bestFormula, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
 	printf("%s", bestFormula.c_str());
+	return bestFormula;
 }
 
 void SequenceTest(CSV& csv, CSV& CDFcsv, int csvcolumnIndex, const char* label)
@@ -238,12 +239,12 @@ void SequenceTest(CSV& csv, CSV& CDFcsv, int csvcolumnIndex, const char* label)
 	// Put the CDF into the CDF csv
 	int cdfcsvcolumnIndex = (int)CDFcsv.size();
 	CDFcsv.resize(cdfcsvcolumnIndex + 3);
-	CDFcsv[cdfcsvcolumnIndex].label = std::string(label) + " CDF";
+	CDFcsv[cdfcsvcolumnIndex].label = std::string(label) + " CDF 1024";
 	CDFcsv[cdfcsvcolumnIndex].values = CDFFull;
 
 	// expand the small cdf so that it looks right in the graphs
 	{
-		CDFcsv[cdfcsvcolumnIndex + 1].label = std::string(label) + " CDFSmall";
+		CDFcsv[cdfcsvcolumnIndex + 1].label = std::string(label) + " CDF 64";
 		CDFcsv[cdfcsvcolumnIndex + 1].values.resize(CDFFull.size());
 		for (size_t index = 0; index < CDFFull.size(); ++index)
 		{
@@ -254,7 +255,220 @@ void SequenceTest(CSV& csv, CSV& CDFcsv, int csvcolumnIndex, const char* label)
 	}
 
 	// Find the best piecewise polynomial fit we can for this CDF, and use that
-	FindBestPolynomialFit(CDFFull, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
+	std::string bestFormula = FindBestPolynomialFit(CDFFull, csv, CDFcsv, csvcolumnIndex, cdfcsvcolumnIndex, label);
+
+	// write to out.txt
+	{
+		FILE* file = nullptr;
+		fopen_s(&file, "out.txt", "ab");
+
+		fprintf(file, "\n==========================\n%s\n==========================\n\n", label);
+
+		// write the polynomial
+		fprintf(file, "%s\n", bestFormula.c_str());
+
+		// write the small LUT
+		fprintf(file, "float LUT[%i] = {\n", (int)CDFSmall.size());
+		for (size_t i = 0; i < CDFSmall.size(); ++i)
+		{
+			if (i > 0 && (i % 10) == 0)
+				fprintf(file, "    %f,  // %i\n", CDFSmall[i], (int)i);
+			else
+				fprintf(file, "    %f,\n", CDFSmall[i]);
+		}
+		fprintf(file, "};\n\n");
+
+		fclose(file);
+	}
+}
+
+void FinalBNTests(pcg32_random_t& rng, CSV& csv, CSV& CDFcsv)
+{
+	printf("\nFinal Blue Noise\n");
+
+	// reserve space in the CSV for this data 
+	// 0) The filtered white noise
+	// 1) To uniform with 1024 table CDF
+	// 2) To uniform with 64 table CDF
+	// 3) To uniform with least squares
+	int csvcolumnIndex1 = (int)csv.size();
+	int csvcolumnIndex2 = csvcolumnIndex1 + 4;
+	csv.resize(csv.size() + 4); // TODO: +8
+	csv[csvcolumnIndex1].label = "Final BN LUT";
+	//csv[csvcolumnIndex2].label = "Final BN Polynomial";
+
+	// make white noise
+	std::vector<float> whiteNoise(c_numberCount);
+	for (float& f : whiteNoise)
+		f = PCGRandomFloat01(rng);
+
+	static const std::vector<float> xCoefficients = { 0.5f, -1.0f, 0.5f };
+	static const std::vector<float> yCoefficients = { };
+
+	// filter the white noise
+	std::vector<float> filteredWhiteNoise(c_numberCount, 0.0f);
+	for (int index = 0; index < c_numberCount; ++index)
+	{
+		float& out = filteredWhiteNoise[index];
+
+		// FIR filtering
+		for (size_t xIndex = 0; xIndex < xCoefficients.size(); ++xIndex)
+		{
+			if (xIndex > index)
+				break;
+
+			out += xCoefficients[xIndex] * whiteNoise[index - xIndex];
+		}
+
+		// IIR filtering feedback
+		for (size_t yIndex = 0; yIndex < yCoefficients.size(); ++yIndex)
+		{
+			if (yIndex >= index)
+				break;
+
+			out += yCoefficients[yIndex] * filteredWhiteNoise[index - yIndex - 1];
+		}
+	}
+
+	// Convert to uniform using the LUT
+	{
+		csv[csvcolumnIndex1].values = filteredWhiteNoise;
+		for (float& f : csv[csvcolumnIndex1].values)
+		{
+			// TODO: this
+		}
+	}
+
+	// Convert to uniform using the polynomial
+	{
+		// TODO: temp
+		csvcolumnIndex2 = csvcolumnIndex1;
+
+		auto ToUniform = [](float x)
+		{
+			int bucket = std::min(int(x * 4.0f), 3);
+			float ret = 0.0f;
+
+			// the second half of the curve is the first curve, flipped on the x and y axis
+			if (bucket & 2)
+			{
+				x = 1.0f - x;
+				bucket ^= 1;
+			}
+
+			if ((bucket & 1) == 0)
+				ret = 5.26063f * x * x * x + 0.0402881f * x * x + 0.000498876f * x + 0.0f;
+			else
+				ret = -5.21888f * x * x * x + 7.8326f * x * x - 1.93075f * x + 0.159535f;
+
+			if (bucket & 2)
+				ret = 1.0f - ret;
+
+			return ret;
+		};
+
+		// Normalize to [0,1]
+		float themin = filteredWhiteNoise[0];
+		float themax = filteredWhiteNoise[0];
+		for (float f : filteredWhiteNoise)
+		{
+			themin = std::min(themin, f);
+			themax = std::max(themax, f);
+		}
+		for (float& f : filteredWhiteNoise)
+			f = (f - themin) / (themax - themin);
+
+		// convert to uniform
+		csv[csvcolumnIndex2].values = filteredWhiteNoise;
+		for (float& f : csv[csvcolumnIndex2].values)
+			f = ToUniform(f);
+
+		// do the normal tests
+		SequenceTest(csv, CDFcsv, csvcolumnIndex2, "Final BN Polynomial");
+	}
+
+	// Do the rest of the testing
+	//SequenceTest(csv, CDFcsv, csvcolumnIndex, label);
+
+	/*
+ Order 3 with 4 pieces. RMSE = 4.61208e-05
+ x in [0, 0.25)
+  y = 5.26063 x^3 + 0.0402881 x^2 + 0.000498876 x + 0
+ x in [0.25, 0.5)
+  y = -5.21888 x^3 + 7.8326 x^2 + -1.93075 x + 0.159535
+ x in [0.5, 0.75)
+  y = -5.27361 x^3 + 7.92327 x^2 + -1.98037 x + 0.168519
+ x in [0.75, 1]
+  y = 5.23633 x^3 + -15.7565 x^2 + 15.8038 x + -4.28361
+
+float LUT[65] = {
+	0.000000,
+	0.000115,
+	0.000417,
+	0.001032,
+	0.002075,
+	0.003690,
+	0.005997,
+	0.009095,
+	0.013108,
+	0.018147,
+	0.024355,  // 10
+	0.031841,
+	0.040706,
+	0.051112,
+	0.063178,
+	0.076976,
+	0.092619,
+	0.110101,
+	0.129387,
+	0.150341,
+	0.172740,  // 20
+	0.196455,
+	0.221397,
+	0.247503,
+	0.274657,
+	0.302720,
+	0.331587,
+	0.361112,
+	0.391223,
+	0.421820,
+	0.452615,  // 30
+	0.483524,
+	0.514501,
+	0.545454,
+	0.576250,
+	0.606779,
+	0.636905,
+	0.666491,
+	0.695483,
+	0.723680,
+	0.750922,  // 40
+	0.777081,
+	0.802167,
+	0.826038,
+	0.848501,
+	0.869477,
+	0.888797,
+	0.906394,
+	0.922151,
+	0.936074,
+	0.948246,  // 50
+	0.958744,
+	0.967731,
+	0.975299,
+	0.981571,
+	0.986677,
+	0.990725,
+	0.993860,
+	0.996189,
+	0.997827,
+	0.998915,  // 60
+	0.999560,
+	0.999873,
+	0.999980,
+	1.000000,
+};
+	*/
 }
 
 void VoidAndClusterTest(pcg32_random_t& rng, CSV& csv, CSV& CDFcsv)
@@ -262,10 +476,11 @@ void VoidAndClusterTest(pcg32_random_t& rng, CSV& csv, CSV& CDFcsv)
 	const char* label = "VoidAndCluster";
 	printf("\n%s\n", label);
 
-	// reserve space in the CSV for this data.
-	// 0) The noise from disk
-	// 1) To uniform with CDF
-	// 2) To uniform with least squares
+	// reserve space in the CSV for this data 
+	// 0) The filtered white noise
+	// 1) To uniform with 1024 table CDF
+	// 2) To uniform with 64 table CDF
+	// 3) To uniform with least squares
 	int csvcolumnIndex = (int)csv.size();
 	csv.resize(csvcolumnIndex + 4);
 	csv[csvcolumnIndex].label = label;
@@ -306,10 +521,11 @@ void IIRTest(const char* label, pcg32_random_t& rng, CSV& csv, CSV& CDFcsv, cons
 {
 	printf("\n%s\n", label);
 
-	// reserve space in the CSV for this data.
+	// reserve space in the CSV for this data 
 	// 0) The filtered white noise
-	// 1) To uniform with CDF
-	// 2) To uniform with least squares
+	// 1) To uniform with 1024 table CDF
+	// 2) To uniform with 64 table CDF
+	// 3) To uniform with least squares
 	int csvcolumnIndex = (int)csv.size();
 	csv.resize(csvcolumnIndex + 4);
 	csv[csvcolumnIndex].label = label;
@@ -353,10 +569,11 @@ void FIRTest(const char* label, pcg32_random_t& rng, CSV& csv, CSV& CDFcsv, cons
 {
 	printf("\n%s\n", label);
 
-	// reserve space in the CSV for this data.
+	// reserve space in the CSV for this data 
 	// 0) The filtered white noise
-	// 1) To uniform with CDF
-	// 2) To uniform with least squares
+	// 1) To uniform with 1024 table CDF
+	// 2) To uniform with 64 table CDF
+	// 3) To uniform with least squares
 	int csvcolumnIndex = (int)csv.size();
 	csv.resize(csvcolumnIndex + 4);
 	csv[csvcolumnIndex].label = label;
@@ -384,8 +601,16 @@ int main(int argc, char** argv)
 	pcg32_srandom_r(&rng, 0xa000b800, 0);
 #endif
 
+	// empty out.txt
+	{
+		FILE* file = nullptr;
+		fopen_s(&file, "out.txt", "wb");
+		fclose(file);
+	}
+
 	// make noise and add to csv
 	CSV csv, CDFcsv;
+	/*
 	FIRTest("Box3RedNoise", rng, csv, CDFcsv, { 1.0f, 1.0f, 1.0f });
 	//FIRTest("Box3RedNoise2", rng, csv, CDFcsv, { 1.0f / 3.0f, 1.0f / 3.0f, 1.0f / 3.0f });
 	FIRTest("Box3BlueNoise", rng, csv, CDFcsv, { -1.0f, 1.0f, -1.0f });
@@ -401,6 +626,9 @@ int main(int argc, char** argv)
 	IIRTest("IIRHPF", rng, csv, CDFcsv, { 0.5f, -1.0f, 0.5f }, { 0.9f });
 
 	VoidAndClusterTest(rng, csv, CDFcsv);
+	*/
+
+	FinalBNTests(rng, csv, CDFcsv);
 
 	printf("\nWriting CSVs...\n");
 	WriteCSV(csv, "out.csv");
@@ -415,9 +643,27 @@ int main(int argc, char** argv)
 /*
 TODO:
 
+* make a copy/pastable class for the LUT and polynomial blue noise
+
 ! should have some simple code to make colored uniform noise by the end. need it for the next post!
+ * FIRHPF put through the O3 C4 function
+ ! the code should just have the first half of the curve, and mirror / reverse x and y to make the second half.
+ * we can also make a 32 value LUT and use it the same way
+ * put both of these methods through the tests above.
+
+! need to fix or hide how uniform PDFs get mangled by the histogram etc code. Probably mark it as "don't test" or just fill in the data with what it should be after with a comment about it. and comment in blog post.
+
+Alan: make sure folks understood how any stocahastic rendering can be made into an ML problem.
+ * also initing with good starting values (noise).
+ * stochastic rendering is anything that uses random values (scalars or vectors or whatever else).
+ * noise is a "blind attempt" at making the result good.
+ * ML at runtime makes that not blind.
+ * algorithms: AO, dithering, rendering volumetric clouds. motion blur, DOF, material blending ....
 
 NOTES:
+
+* talk about all the point and derivative constraints
+* talk about how you made the LUT (made [32] be 0.5) and the polynomial.
 
 * Lut down to 64 entries wasn't bad.
  * probably would be better if the lut was non linear spaced points but that'd be hard to look up
