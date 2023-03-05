@@ -274,14 +274,22 @@ void VoidAndClusterTest(pcg32_random_t& rng, CSV& csv, CSV& CDFcsv)
 	csv[csvcolumnIndex].label = label;
 
 	// read the data from disk
-	FILE* file = nullptr;
-	fopen_s(&file, "bluenoise_100k_u64.bin", "rb");
-	size_t length = 0;
-	fread(&length, sizeof(size_t), 1, file);
-	std::vector<size_t> blueNoise(length);
-	fread(blueNoise.data(), sizeof(size_t), length, file);
-	fclose(file);
+	std::vector<size_t> blueNoise;
+	for (int i = 0; i < 100; ++i)
+	{
+		char fileName[256];
+		sprintf_s(fileName, "bluenoise/bn100k_%i.bin", i);
+		FILE* file = nullptr;
+		fopen_s(&file, fileName, "rb");
+		size_t length = 0;
+		fread(&length, sizeof(size_t), 1, file);
+		size_t oldLength = blueNoise.size();
+		blueNoise.resize(oldLength + length);
+		fread(&blueNoise[oldLength], sizeof(size_t), length, file);
+		fclose(file);
+	}
 
+	size_t length = blueNoise.size();
 	if (length > c_numberCount)
 	{
 		blueNoise.resize(c_numberCount);
