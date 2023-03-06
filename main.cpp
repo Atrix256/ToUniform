@@ -507,17 +507,6 @@ int main(int argc, char** argv)
 }
 
 /*
-TODO:
-
-* make a copy/pastable class for the LUT and polynomial blue noise
- * the lut and polynomial code needs to be updated since you changed how you get the CDF
-
-! should have some simple code to make colored uniform noise by the end. need it for the next post!
- * FIRHPF put through the O3 C4 function
- ! the code should just have the first half of the curve, and mirror / reverse x and y to make the second half.
- * we can also make a 32 value LUT and use it the same way
- * put both of these methods through the tests above.
-
 NOTES:
 
 ! tried to get both polynomial and LUT to work by only having first half and mirroring / y flipping the second half
