@@ -13,8 +13,8 @@
 static const size_t c_numberCount = 10000000;
 
 // Bucket count of histogram that makes the PDF and CDF
-static const size_t c_histogramBucketCountFull = 1024;
-static const size_t c_histogramBucketCountSmall = 64;
+static const size_t c_CDFTableSizeFull = 1024;
+static const size_t c_CDFTableSizeSmall = 64;
 
 float PCGRandomFloat01(pcg32_random_t& rng)
 {
@@ -146,58 +146,67 @@ void SequenceTest(CSV& csv, CSV& CDFcsv, int csvcolumnIndex, const char* label)
 	for (float& f : csv[csvcolumnIndex].values)
 		f = (f - themin) / (themax - themin);
 
-	// Make a histogram
-	std::vector<int> countsFull(c_histogramBucketCountFull, 0);
-	std::vector<int> countsSmall(c_histogramBucketCountSmall, 0);
-	for (float f : csv[csvcolumnIndex].values)
+	// sort the values, so that sampling this list as [0,1] samples the ICDF.
+	// add an explicit 0.0f and 1.0f if they aren't there
+	std::vector<float> valuesSorted = csv[csvcolumnIndex].values;
+	if (valuesSorted[0] > 0.0f)
+		valuesSorted.insert(valuesSorted.begin(), 0.0f);
+	if (valuesSorted[valuesSorted.size() - 1] < 1.0f)
+		valuesSorted.push_back(1.0f);
+	std::sort(valuesSorted.begin(), valuesSorted.end());
+
+	// sample the ICDF at evenly spaced intervals to make the smaller tables
+	std::vector<float> CDFFull(c_CDFTableSizeFull);
+	for (size_t i = 0; i < c_CDFTableSizeFull; ++i)
 	{
+		// get our evenly spaced x value
+		float percent = (float(i) + 0.5f) / float(c_CDFTableSizeFull);
+
+		// find the index of the first value >= x.
+		// returns size if all values are less than x.
+		int index = int(std::lower_bound(valuesSorted.begin(), valuesSorted.end(), percent) - valuesSorted.begin());
+
+		// find the percent 0 to 1 that the value occurs in the list, using linear interpolation to get more precise
+		// than an integer index.
+		if (index == 0)
+			CDFFull[i] = 0.0f;
+		else if (index == valuesSorted.size())
+			CDFFull[i] = 1.0f;
+		else
 		{
-			int bucket = std::min(int(f * float(c_histogramBucketCountFull)), (int)c_histogramBucketCountFull - 1);
-			countsFull[bucket]++;
-		}
-		{
-			int bucket = std::min(int(f * float(c_histogramBucketCountSmall)), (int)c_histogramBucketCountSmall - 1);
-			countsSmall[bucket]++;
+			int index1 = index - 1;
+			int index2 = index;
+			float min = valuesSorted[index1];
+			float max = valuesSorted[index2];
+			float indexFract = (percent - min) / (max - min);
+			CDFFull[i] = (float(index1) + indexFract) / float(valuesSorted.size());
 		}
 	}
-
-	std::vector<float> CDFFull(c_histogramBucketCountFull);
-	std::vector<float> CDFSmall(c_histogramBucketCountSmall);
-
-	// Make Full CDF
+	std::vector<float> CDFSmall(c_CDFTableSizeSmall);
+	for (size_t i = 0; i < c_CDFTableSizeSmall; ++i)
 	{
-		std::vector<float> PDF(c_histogramBucketCountFull);
-		float lastCDFValue = 0.0f;
-		for (int index = 0; index < c_histogramBucketCountFull; ++index)
+		// get our evenly spaced x value
+		float percent = (float(i) + 0.5f) / float(c_CDFTableSizeSmall);
+
+		// find the index of the first value >= x.
+		// returns size if all values are less than x.
+		int index = int(std::lower_bound(valuesSorted.begin(), valuesSorted.end(), percent) - valuesSorted.begin());
+
+		// find the percent 0 to 1 that the value occurs in the list, using linear interpolation to get more precise
+		// than an integer index.
+		if (index == 0)
+			CDFFull[i] = 0.0f;
+		else if (index == valuesSorted.size())
+			CDFFull[i] = 1.0f;
+		else
 		{
-			PDF[index] = float(countsFull[index]) / float(c_numberCount);
-			CDFFull[index] = lastCDFValue + PDF[index];
-			lastCDFValue = CDFFull[index];
+			int index1 = index - 1;
+			int index2 = index;
+			float min = valuesSorted[index1];
+			float max = valuesSorted[index2];
+			float indexFract = (percent - min) / (max - min);
+			CDFSmall[i] = (float(index1) + indexFract) / float(valuesSorted.size());
 		}
-		CDFFull.insert(CDFFull.begin(), 0.0f);
-		CDFFull[CDFFull.size() - 1] = 1.0f;
-
-		// Make the error be split evenly on the positive and negative side
-		for (size_t index = 1; index < CDFFull.size() - 1; ++index)
-			CDFFull[index] = (CDFFull[index] + CDFFull[index + 1]) / 2.0f;
-	}
-
-	// Make Small CDF
-	{
-		std::vector<float> PDF(c_histogramBucketCountSmall);
-		float lastCDFValue = 0.0f;
-		for (int index = 0; index < c_histogramBucketCountSmall; ++index)
-		{
-			PDF[index] = float(countsSmall[index]) / float(c_numberCount);
-			CDFSmall[index] = lastCDFValue + PDF[index];
-			lastCDFValue = CDFSmall[index];
-		}
-		CDFSmall.insert(CDFSmall.begin(), 0.0f);
-		CDFSmall[CDFSmall.size() - 1] = 1.0f;
-
-		// Make the error be split evenly on the positive and negative side
-		for (size_t index = 1; index < CDFSmall.size() - 1; ++index)
-			CDFSmall[index] = (CDFSmall[index] + CDFSmall[index + 1]) / 2.0f;
 	}
 
 	// Put the values through the full CDF (inverted, inverted CDF) to make them be a uniform distribution
@@ -207,13 +216,18 @@ void SequenceTest(CSV& csv, CSV& CDFcsv, int csvcolumnIndex, const char* label)
 	{
 		float x = csv[csvcolumnIndex].values[index];
 
-		float xindexf = std::min(x * float(CDFFull.size() - 1) - 0.5f, (float)(CDFFull.size() - 1));
+		float xindexf = std::min(x * float(CDFFull.size() - 1), (float)(CDFFull.size() - 1));
 		int xindex1 = int(xindexf);
 		int xindex2 = std::min(xindex1 + 1, (int)CDFFull.size() - 1);
 		float xindexfract = xindexf - std::floor(xindexf);
 
 		float y1 = CDFFull[xindex1];
 		float y2 = CDFFull[xindex2];
+
+		if (xindex1 == 0 && xindexfract == 0.0f)
+			y1 = y2 = 0.0f;
+		else if (xindex1 == CDFSmall.size() - 1)
+			y1 = y2 = 1.0f;
 
 		csv[csvcolumnIndex + 1].values[index] = Lerp(y1, y2, xindexfract);
 	}
@@ -225,13 +239,18 @@ void SequenceTest(CSV& csv, CSV& CDFcsv, int csvcolumnIndex, const char* label)
 	{
 		float x = csv[csvcolumnIndex].values[index];
 
-		float xindexf = std::min(x * float(CDFSmall.size() - 1) - 0.5f, (float)(CDFSmall.size() - 1));
+		float xindexf = std::min(x * float(CDFSmall.size() - 1), (float)(CDFSmall.size() - 1));
 		int xindex1 = int(xindexf);
 		int xindex2 = std::min(xindex1 + 1, (int)CDFSmall.size() - 1);
 		float xindexfract = xindexf - std::floor(xindexf);
 
 		float y1 = CDFSmall[xindex1];
 		float y2 = CDFSmall[xindex2];
+
+		if (xindex1 == 0 && xindexfract == 0.0f)
+			y1 = y2 = 0.0f;
+		else if (xindex1 == CDFSmall.size() - 1)
+			y1 = y2 = 1.0f;
 
 		csv[csvcolumnIndex + 2].values[index] = Lerp(y1, y2, xindexfract);
 	}
@@ -248,8 +267,8 @@ void SequenceTest(CSV& csv, CSV& CDFcsv, int csvcolumnIndex, const char* label)
 		CDFcsv[cdfcsvcolumnIndex + 1].values.resize(CDFFull.size());
 		for (size_t index = 0; index < CDFFull.size(); ++index)
 		{
-			float x = (float(index) + 0.5f) / float(CDFFull.size() - 1);
-			int srcIndex = std::min(int(x * float(CDFSmall.size() - 1)), (int)CDFSmall.size() - 1);
+			float x = (float(index)) / float(CDFFull.size() - 1);
+			int srcIndex = std::min(int(x * float(CDFSmall.size())), (int)CDFSmall.size() - 1);
 			CDFcsv[cdfcsvcolumnIndex + 1].values[index] = CDFSmall[srcIndex];
 		}
 	}
@@ -272,9 +291,9 @@ void SequenceTest(CSV& csv, CSV& CDFcsv, int csvcolumnIndex, const char* label)
 		for (size_t i = 0; i < CDFSmall.size(); ++i)
 		{
 			if (i > 0 && (i % 10) == 0)
-				fprintf(file, "    %f,  // %i\n", CDFSmall[i], (int)i);
+				fprintf(file, "    %ff,  // %i\n", CDFSmall[i], (int)i);
 			else
-				fprintf(file, "    %f,\n", CDFSmall[i]);
+				fprintf(file, "    %ff,\n", CDFSmall[i]);
 		}
 		fprintf(file, "};\n\n");
 
@@ -293,9 +312,9 @@ void FinalBNTests(pcg32_random_t& rng, CSV& csv, CSV& CDFcsv)
 	// 3) To uniform with least squares
 	int csvcolumnIndex1 = (int)csv.size();
 	int csvcolumnIndex2 = csvcolumnIndex1 + 4;
-	csv.resize(csv.size() + 4); // TODO: +8
+	csv.resize(csv.size() + 8);
 	csv[csvcolumnIndex1].label = "Final BN LUT";
-	//csv[csvcolumnIndex2].label = "Final BN Polynomial";
+	csv[csvcolumnIndex2].label = "Final BN Polynomial";
 
 	// make white noise
 	std::vector<float> whiteNoise(c_numberCount);
@@ -332,38 +351,130 @@ void FinalBNTests(pcg32_random_t& rng, CSV& csv, CSV& CDFcsv)
 
 	// Convert to uniform using the LUT
 	{
+		printf("\n LUT\n");
+
+		auto ToUniform = [](float x)
+		{
+			static const std::vector<float> LUT =
+			{
+				0.000008f,
+				0.000126f,
+				0.000478f,
+				0.001155f,
+				0.002251f,
+				0.004030f,
+				0.006441f,
+				0.009596f,
+				0.013695f,
+				0.018927f,
+				0.025355f,  // 10
+				0.033032f,
+				0.042107f,
+				0.052496f,
+				0.064787f,
+				0.078712f,
+				0.094684f,
+				0.112292f,
+				0.131824f,
+				0.152818f,
+				0.175335f,  // 20
+				0.199049f,
+				0.224476f,
+				0.250783f,
+				0.277852f,
+				0.305973f,
+				0.334680f,
+				0.363986f,
+				0.393945f,
+				0.424846f,
+				0.455969f,  // 30
+				0.486683f,
+				0.517827f,
+				0.548521f,
+				0.579180f,
+				0.609718f,
+				0.639919f,
+				0.669180f,
+				0.698089f,
+				0.726230f,
+				0.753389f,  // 40
+				0.779630f,
+				0.804358f,
+				0.828272f,
+				0.850459f,
+				0.871144f,
+				0.890308f,
+				0.907814f,
+				0.923487f,
+				0.937238f,
+				0.949365f,  // 50
+				0.959586f,
+				0.968409f,
+				0.975893f,
+				0.982001f,
+				0.987002f,
+				0.990933f,
+				0.994027f,
+				0.996302f,
+				0.997890f,
+				0.998971f,  // 60
+				0.999558f,
+				0.999887f,
+				0.999991f
+			};
+
+			float xindexf = std::min(x * float(LUT.size() - 1), (float)(LUT.size() - 1));
+			int xindex1 = int(xindexf);
+			int xindex2 = std::min(xindex1 + 1, (int)LUT.size() - 1);
+			float xindexfract = xindexf - std::floor(xindexf);
+
+			float y1 = LUT[xindex1];
+			float y2 = LUT[xindex2];
+
+			if (xindex1 == 0 && xindexfract == 0.0f)
+				y1 = y2 = 0.0f;
+			else if (xindex1 == LUT.size() - 1)
+				y1 = y2 = 1.0f;
+
+			float y = Lerp(y1, y2, xindexfract);
+
+			return y;
+		};
+
+		// Normalize to [0,1]
+		float themin = filteredWhiteNoise[0];
+		float themax = filteredWhiteNoise[0];
+		for (float f : filteredWhiteNoise)
+		{
+			themin = std::min(themin, f);
+			themax = std::max(themax, f);
+		}
+		for (float& f : filteredWhiteNoise)
+			f = (f - themin) / (themax - themin);
+
+		// convert to uniform
 		csv[csvcolumnIndex1].values = filteredWhiteNoise;
 		for (float& f : csv[csvcolumnIndex1].values)
-		{
-			// TODO: this
-		}
+			f = ToUniform(f);
+
+		// do the normal tests
+		SequenceTest(csv, CDFcsv, csvcolumnIndex1, "Final BN LUT");
 	}
 
 	// Convert to uniform using the polynomial
 	{
-		// TODO: temp
-		csvcolumnIndex2 = csvcolumnIndex1;
+		printf("\n Polynomial\n");
 
 		auto ToUniform = [](float x)
 		{
-			int bucket = std::min(int(x * 4.0f), 3);
 			float ret = 0.0f;
-
-			// the second half of the curve is the first curve, flipped on the x and y axis
-			if (bucket & 2)
+			switch (std::min(int(x * 4.0f), 3))
 			{
-				x = 1.0f - x;
-				bucket ^= 1;
+				case 0: ret = 5.25964f * x * x * x + 0.039474f * x * x + 0.000708779f * x + 0.0f; break;
+				case 1: ret = -5.20987f * x * x * x + 7.82905f * x * x -1.93105f * x + 0.159677f;  break;
+				case 2: ret = -5.22644f * x * x * x + 7.8272f * x * x - 1.91677f * x + 0.15507f;  break;
+				case 3: ret = 5.23882f * x * x * x + -15.761f * x * x + 15.8054f * x + -4.28323f;  break;
 			}
-
-			if ((bucket & 1) == 0)
-				ret = 5.26063f * x * x * x + 0.0402881f * x * x + 0.000498876f * x + 0.0f;
-			else
-				ret = -5.21888f * x * x * x + 7.8326f * x * x - 1.93075f * x + 0.159535f;
-
-			if (bucket & 2)
-				ret = 1.0f - ret;
-
 			return ret;
 		};
 
@@ -386,89 +497,6 @@ void FinalBNTests(pcg32_random_t& rng, CSV& csv, CSV& CDFcsv)
 		// do the normal tests
 		SequenceTest(csv, CDFcsv, csvcolumnIndex2, "Final BN Polynomial");
 	}
-
-	// Do the rest of the testing
-	//SequenceTest(csv, CDFcsv, csvcolumnIndex, label);
-
-	/*
- Order 3 with 4 pieces. RMSE = 4.61208e-05
- x in [0, 0.25)
-  y = 5.26063 x^3 + 0.0402881 x^2 + 0.000498876 x + 0
- x in [0.25, 0.5)
-  y = -5.21888 x^3 + 7.8326 x^2 + -1.93075 x + 0.159535
- x in [0.5, 0.75)
-  y = -5.27361 x^3 + 7.92327 x^2 + -1.98037 x + 0.168519
- x in [0.75, 1]
-  y = 5.23633 x^3 + -15.7565 x^2 + 15.8038 x + -4.28361
-
-float LUT[65] = {
-	0.000000,
-	0.000115,
-	0.000417,
-	0.001032,
-	0.002075,
-	0.003690,
-	0.005997,
-	0.009095,
-	0.013108,
-	0.018147,
-	0.024355,  // 10
-	0.031841,
-	0.040706,
-	0.051112,
-	0.063178,
-	0.076976,
-	0.092619,
-	0.110101,
-	0.129387,
-	0.150341,
-	0.172740,  // 20
-	0.196455,
-	0.221397,
-	0.247503,
-	0.274657,
-	0.302720,
-	0.331587,
-	0.361112,
-	0.391223,
-	0.421820,
-	0.452615,  // 30
-	0.483524,
-	0.514501,
-	0.545454,
-	0.576250,
-	0.606779,
-	0.636905,
-	0.666491,
-	0.695483,
-	0.723680,
-	0.750922,  // 40
-	0.777081,
-	0.802167,
-	0.826038,
-	0.848501,
-	0.869477,
-	0.888797,
-	0.906394,
-	0.922151,
-	0.936074,
-	0.948246,  // 50
-	0.958744,
-	0.967731,
-	0.975299,
-	0.981571,
-	0.986677,
-	0.990725,
-	0.993860,
-	0.996189,
-	0.997827,
-	0.998915,  // 60
-	0.999560,
-	0.999873,
-	0.999980,
-	1.000000,
-};
-	*/
 }
 
 void VoidAndClusterTest(pcg32_random_t& rng, CSV& csv, CSV& CDFcsv)
@@ -610,7 +638,6 @@ int main(int argc, char** argv)
 
 	// make noise and add to csv
 	CSV csv, CDFcsv;
-	/*
 	FIRTest("Box3RedNoise", rng, csv, CDFcsv, { 1.0f, 1.0f, 1.0f });
 	//FIRTest("Box3RedNoise2", rng, csv, CDFcsv, { 1.0f / 3.0f, 1.0f / 3.0f, 1.0f / 3.0f });
 	FIRTest("Box3BlueNoise", rng, csv, CDFcsv, { -1.0f, 1.0f, -1.0f });
@@ -626,7 +653,6 @@ int main(int argc, char** argv)
 	IIRTest("IIRHPF", rng, csv, CDFcsv, { 0.5f, -1.0f, 0.5f }, { 0.9f });
 
 	VoidAndClusterTest(rng, csv, CDFcsv);
-	*/
 
 	FinalBNTests(rng, csv, CDFcsv);
 
@@ -644,6 +670,7 @@ int main(int argc, char** argv)
 TODO:
 
 * make a copy/pastable class for the LUT and polynomial blue noise
+ * the lut and polynomial code needs to be updated since you changed how you get the CDF
 
 ! should have some simple code to make colored uniform noise by the end. need it for the next post!
  * FIRHPF put through the O3 C4 function
@@ -651,16 +678,23 @@ TODO:
  * we can also make a 32 value LUT and use it the same way
  * put both of these methods through the tests above.
 
-! need to fix or hide how uniform PDFs get mangled by the histogram etc code. Probably mark it as "don't test" or just fill in the data with what it should be after with a comment about it. and comment in blog post.
-
-Alan: make sure folks understood how any stocahastic rendering can be made into an ML problem.
- * also initing with good starting values (noise).
- * stochastic rendering is anything that uses random values (scalars or vectors or whatever else).
- * noise is a "blind attempt" at making the result good.
- * ML at runtime makes that not blind.
- * algorithms: AO, dithering, rendering volumetric clouds. motion blur, DOF, material blending ....
-
 NOTES:
+
+! tried to get both polynomial and LUT to work by only having first half and mirroring / y flipping the second half
+ * should be able to work
+ * i had problems with the center either having way too many or way to few values.
+ * leaving it for another day. 
+
+* getting the inverse CDF from a bunch of samples of a distribution is real easy!
+ 1) Generate a bunch of samples
+ 2) sort them
+ 3) Use random numbers [0,1] to sample this sorted list, using interpolation. This samples from the distribution!
+ 4a) To get the ICDF out, could take N regularly spaced samples for a table.
+ 4b) Alternately, fit a curve or curves (least squares) to this data.
+ 5) To get CDF (to make a distribution uniform, to keep it's color) you need to invert this before doing 4a or 4b
+  * or binary search!
+
+! could go much deeper here to get higher quality streaming colored noise
 
 * talk about all the point and derivative constraints
 * talk about how you made the LUT (made [32] be 0.5) and the polynomial.
