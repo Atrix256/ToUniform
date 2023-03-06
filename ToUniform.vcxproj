@@ -131,6 +131,7 @@
     <ClCompile Include="pcg\pcg_basic.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="BlueNoiseStream.h" />
     <ClInclude Include="csv.h" />
     <ClInclude Include="leastsquaresfit.h" />
     <ClInclude Include="mathutils.h" />

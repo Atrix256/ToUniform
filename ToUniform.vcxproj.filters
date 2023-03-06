@@ -18,5 +18,6 @@
     <ClInclude Include="csv.h" />
     <ClInclude Include="leastsquaresfit.h" />
     <ClInclude Include="mathutils.h" />
+    <ClInclude Include="BlueNoiseStream.h" />
   </ItemGroup>
 </Project>
