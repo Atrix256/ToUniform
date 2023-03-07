@@ -155,16 +155,16 @@ public:
 		// the noise is also [-1,1] now, normalize to [0,1]
 		float x = y * 0.5f + 0.5f;
 
-		// Make the noise uniform again by putting it through a piecewise polynomial approximation of the CDF
-		float ret = 0.0f;
-		switch (std::min(int(x * 4.0f), 3))
-		{
-			case 0: ret = 5.25964f * x * x * x + 0.039474f * x * x + 0.000708779f * x + 0.0f; break;
-			case 1: ret = -5.20987f * x * x * x + 7.82905f * x * x -1.93105f * x + 0.159677f;  break;
-			case 2: ret = -5.22644f * x * x * x + 7.8272f * x * x - 1.91677f * x + 0.15507f;  break;
-			case 3: ret = 5.23882f * x * x * x + -15.761f * x * x + 15.8054f * x + -4.28323f;  break;
-		}
-		return ret;
+		// Make the noise uniform again by putting it through a piecewise cubic polynomial approximation of the CDF
+		// Switched to Horner's method polynomials, and a polynomial array to avoid branching, per Marc Reynolds. Thanks!
+		float polynomialCoefficients[16] = {
+			5.25964f, 0.039474f, 0.000708779f, 0.0f,
+			-5.20987f, 7.82905f, -1.93105f, 0.159677f,
+			-5.22644f, 7.8272f, -1.91677f, 0.15507f,
+			5.23882f, -15.761f, 15.8054f, -4.28323f
+		};
+		int first = std::min(int(x * 4.0f), 3) * 4;
+		return polynomialCoefficients[first + 3] + x * (polynomialCoefficients[first + 2] + x * (polynomialCoefficients[first + 1] + x * polynomialCoefficients[first + 0]));
 	}
 
 private:
