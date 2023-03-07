@@ -14,7 +14,7 @@ public:
 	{
 		// Filter uniform white noise to remove low frequencies and make it blue.
 		// A side effect is the noise becomes non uniform.
-		static const std::vector<float> xCoefficients = { 0.5f, -1.0f, 0.5f };
+		static const float xCoefficients[3] = {0.5f, -1.0f, 0.5f};
 
 		float value = RandomFloat01();
 
@@ -30,7 +30,7 @@ public:
 		float x = y * 0.5f + 0.5f;
 
 		// Make the noise uniform again by putting it through a LUT of the CDF
-		static const std::vector<float> LUT =
+		static const float LUT[] =
 		{
 			0.000008f,
 			0.000126f,
@@ -97,10 +97,11 @@ public:
 			0.999887f,
 			0.999991f
 		};
+		static const size_t lutSize = _countof(LUT);
 
-		float xindexf = std::min(x * float(LUT.size() - 1), (float)(LUT.size() - 1));
+		float xindexf = std::min(x * float(lutSize - 1), (float)(lutSize - 1));
 		int xindex1 = int(xindexf);
-		int xindex2 = std::min(xindex1 + 1, (int)LUT.size() - 1);
+		int xindex2 = std::min(xindex1 + 1, (int)lutSize - 1);
 		float xindexfract = xindexf - std::floor(xindexf);
 
 		float y1 = LUT[xindex1];
@@ -108,7 +109,7 @@ public:
 
 		if (xindex1 == 0 && xindexfract == 0.0f)
 			y1 = y2 = 0.0f;
-		else if (xindex1 == LUT.size() - 1)
+		else if (xindex1 == lutSize - 1)
 			y1 = y2 = 1.0f;
 
 		return Lerp(y1, y2, xindexfract);
@@ -140,7 +141,7 @@ public:
 	{
 		// Filter uniform white noise to remove low frequencies and make it blue.
 		// A side effect is the noise becomes non uniform.
-		static const std::vector<float> xCoefficients = { 0.5f, -1.0f, 0.5f };
+		static const float xCoefficients[3] = {0.5f, -1.0f, 0.5f};
 
 		float value = RandomFloat01();
 
