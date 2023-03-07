@@ -13,6 +13,9 @@
 // The size of the list of random numbers output
 static const size_t c_numberCount = 10000000;
 
+// how many of the sequence it will output into the text file
+static const size_t c_outputSequenceCount = 25; 
+
 // Bucket count of histogram that makes the PDF and CDF
 static const size_t c_CDFTableSizeFull = 1024;
 static const size_t c_CDFTableSizeSmall = 64;
@@ -297,6 +300,18 @@ void SequenceTest(CSV& csv, CSV& CDFcsv, int csvcolumnIndex, const char* label)
 				fprintf(file, "    %ff,\n", CDFSmall[i]);
 		}
 		fprintf(file, "};\n\n");
+
+		// write the starting numbers
+		fprintf(file, "Raw Numbers:\n");
+		for (size_t i = 0; i < c_outputSequenceCount; ++i)
+			fprintf(file, "%s%f", (i == 0) ? "" : ", ", csv[cdfcsvcolumnIndex].values[i]);
+		fprintf(file, "\n");
+
+		// write the toUniform1024 numbers
+		fprintf(file, "\nToUniform1024 Numbers:\n");
+		for (size_t i = 0; i < c_outputSequenceCount; ++i)
+			fprintf(file, "%s%f", (i == 0) ? "" : ", ", csv[cdfcsvcolumnIndex + 1].values[i]);
+		fprintf(file, "\n");
 
 		fclose(file);
 	}
