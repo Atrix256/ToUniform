@@ -192,7 +192,7 @@ public:
 
 	float Next()
 	{
-		// Filter uniform white noise to remove low frequencies and make it red.
+		// Filter uniform white noise to remove high frequencies and make it red.
 		// A side effect is the noise becomes non uniform.
 		static const float xCoefficients[3] = { 0.25f, 0.5f, 0.25f };
 
