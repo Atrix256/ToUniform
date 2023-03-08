@@ -352,6 +352,23 @@ void FinalBNTests(pcg32_random_t& rng, CSV& csv, CSV& CDFcsv)
 
 		SequenceTest(csv, CDFcsv, csvcolumnIndex, label);
 	}
+
+	// Make uniform RN using a polynomial approximation of the CDF 
+	{
+		const char* label = "Final RN Polynomial";
+		printf("\n%s\n", label);
+
+		int csvcolumnIndex = (int)csv.size();
+		csv.resize(csv.size() + 4);
+		csv[csvcolumnIndex].label = label;
+
+		RedNoiseStreamPolynomial stream(rng);
+		csv[csvcolumnIndex].values.resize(c_numberCount);
+		for (float& f : csv[csvcolumnIndex].values)
+			f = stream.Next();
+
+		SequenceTest(csv, CDFcsv, csvcolumnIndex, label);
+	}
 }
 
 void VoidAndClusterTest(pcg32_random_t& rng, CSV& csv, CSV& CDFcsv)
@@ -506,6 +523,9 @@ int main(int argc, char** argv)
 
 	IIRTest("FIRHPF", rng, csv, CDFcsv, { 0.5f, -1.0f, 0.5f }, {});
 	IIRTest("IIRHPF", rng, csv, CDFcsv, { 0.5f, -1.0f, 0.5f }, { 0.9f });
+
+	IIRTest("FIRLPF", rng, csv, CDFcsv, { 0.25f, 0.5f, 0.25f }, {});
+	IIRTest("IIRLPF", rng, csv, CDFcsv, { 0.25f, 0.5f, 0.25f }, { -0.9f });
 
 	VoidAndClusterTest(rng, csv, CDFcsv);
 
