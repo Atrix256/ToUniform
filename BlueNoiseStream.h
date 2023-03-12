@@ -231,3 +231,41 @@ private:
 	pcg32_random_t m_rng;
 	float m_lastValues[2] = {};
 };
+
+// From Nick Appleton:
+// https://mastodon.gamedev.place/@nickappleton/110009300197779505
+// But I'm using this for the single bit random value needed per number:
+// https://blog.demofox.org/2013/07/07/a-super-tiny-random-number-generator/
+// Which comes from:
+// http://www.woodmann.com/forum/showthread.php?3100-super-tiny-PRNG
+class BlueNoiseStreamAppleton
+{
+public:
+	BlueNoiseStreamAppleton(unsigned int seed)
+		: m_seed(seed)
+		, m_p(0.0f)
+	{
+	}
+
+	float sign(float x)
+	{
+		return (x < 0.0) ? -1.0f : 1.0f;
+	}
+
+	float Next()
+	{
+		float ret = (GenerateRandomBit() ? 1.0f : -1.0f) / 2.0f - m_p;
+		m_p = ret / 2.0f;
+		return ret;
+	}
+
+private:
+	bool GenerateRandomBit()
+	{
+		m_seed += (m_seed * m_seed) | 5;
+		return (m_seed & 0x80000000) != 0;
+	}
+
+	unsigned int m_seed;
+	float m_p;
+};

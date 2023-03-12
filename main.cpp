@@ -369,6 +369,23 @@ void FinalBNTests(pcg32_random_t& rng, CSV& csv, CSV& CDFcsv)
 
 		SequenceTest(csv, CDFcsv, csvcolumnIndex, label);
 	}
+
+	// Do the blue noise from Nick Appleton
+	{
+		const char* label = "Appleton BN";
+		printf("\n%s\n", label);
+
+		int csvcolumnIndex = (int)csv.size();
+		csv.resize(csv.size() + 4);
+		csv[csvcolumnIndex].label = label;
+
+		BlueNoiseStreamAppleton stream(pcg32_random_r(&rng));
+		csv[csvcolumnIndex].values.resize(c_numberCount);
+		for (float& f : csv[csvcolumnIndex].values)
+			f = stream.Next();
+
+		SequenceTest(csv, CDFcsv, csvcolumnIndex, label);
+	}
 }
 
 void VoidAndClusterTest(pcg32_random_t& rng, CSV& csv, CSV& CDFcsv)
