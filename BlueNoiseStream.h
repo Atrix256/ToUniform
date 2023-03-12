@@ -247,11 +247,6 @@ public:
 	{
 	}
 
-	float sign(float x)
-	{
-		return (x < 0.0) ? -1.0f : 1.0f;
-	}
-
 	float Next()
 	{
 		float ret = (GenerateRandomBit() ? 1.0f : -1.0f) / 2.0f - m_p;
